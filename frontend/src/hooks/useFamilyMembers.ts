@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
 import { FamilyMember, TreeNode, GenerationChar } from '../types';
 
-export function useFamilyMembers(userId: string | undefined, rootMemberId?: string | null) {
+export function useFamilyMembers(userId: number | undefined, rootMemberId?: number | null) {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [generationChars, setGenerationChars] = useState<GenerationChar[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +29,7 @@ export function useFamilyMembers(userId: string | undefined, rootMemberId?: stri
   }, [fetchMembers]);
 
   const buildTree = useCallback((): TreeNode[] => {
-    const memberMap = new Map<string, TreeNode>();
+    const memberMap = new Map<number, TreeNode>();
     const rootNodes: TreeNode[] = [];
 
     members.forEach(member => {
@@ -93,14 +93,14 @@ export function useFamilyMembers(userId: string | undefined, rootMemberId?: stri
     return newMember;
   };
 
-  const updateMember = async (id: string, data: Partial<FamilyMember>) => {
+  const updateMember = async (id: number, data: Partial<FamilyMember>) => {
     const generationChar = data.generation ? getGenerationChar(data.generation) : undefined;
     const updatedMember = await api.updateMember(id, { ...data, generation_char: generationChar });
     setMembers(prev => prev.map(m => m.id === id ? updatedMember : m));
     return updatedMember;
   };
 
-  const deleteMember = async (id: string) => {
+  const deleteMember = async (id: number) => {
     await api.deleteMember(id);
     setMembers(prev => prev.filter(m => m.id !== id));
   };

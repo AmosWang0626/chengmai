@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 /** 成员服务：CRUD + 字辈自动填充 + 排行自动计算。入参用 Map 以保留“字段是否出现”的部分更新语义。 */
 public class MemberService {
@@ -46,15 +45,15 @@ public class MemberService {
         if (name == null || name.isBlank()) {
             throw new ApiException(400, "姓名不能为空");
         }
-        String parentId = str(data.get("parent_id"));
+        Long parentId = parentIdOrNull(data.get("parent_id"));
         if (parentId != null && !members.existsById(parentId)) {
             throw new ApiException(400, "所选父节点不存在");
         }
-        String id = UUID.randomUUID().toString();
+        data.put("parent_id", parentId);
         fillGenerationChar(data);
-        fillRanks(data, id);
-        members.insert(new FamilyMember(
-                id, actor.id(), name, str(data.get("gender")),
+        fillRanks(data, 0L);
+        long id = members.insert(new FamilyMember(
+                null, actor.id(), name, str(data.get("gender")),
                 str(data.get("birth_date")), str(data.get("death_date")),
                 str(data.get("phone")), str(data.get("email")), str(data.get("address")),
                 str(data.get("occupation")), str(data.get("education")), str(data.get("bio")),
@@ -68,15 +67,22 @@ public class MemberService {
     }
 
     /** 部分更新：只处理请求体中出现的字段；始终刷新 updated_at。 */
-    public FamilyMember update(String id, Map<String, Object> body) {
+    public FamilyMember update(long id, Map<String, Object> body) {
         members.findById(id).orElseThrow(() -> new ApiException(404, "成员不存在"));
         Map<String, Object> data = pickFields(body);
         Object name = data.get("name");
         if (data.containsKey("name") && name != null && String.valueOf(name).isBlank()) {
             throw new ApiException(400, "姓名不能为空");
         }
-        if (id.equals(data.get("parent_id"))) {
-            throw new ApiException(400, "不能将自己设为自己的父节点");
+        if (data.containsKey("parent_id")) {
+            Long parentId = parentIdOrNull(data.get("parent_id"));
+            if (parentId != null && parentId == id) {
+                throw new ApiException(400, "不能将自己设为自己的父节点");
+            }
+            if (parentId != null && !members.existsById(parentId)) {
+                throw new ApiException(400, "所选父节点不存在");
+            }
+            data.put("parent_id", parentId);
         }
         fillGenerationChar(data);
         fillRanks(data, id);
@@ -86,7 +92,7 @@ public class MemberService {
     }
 
     /** 删除成员；子女 parent_id 由外键自动置空。 */
-    public void delete(String id) {
+    public void delete(long id) {
         if (!members.existsById(id)) {
             throw new ApiException(404, "成员不存在");
         }
@@ -115,8 +121,8 @@ public class MemberService {
     }
 
     /** 排行缺省（未传或为 0）时按父节点+性别重算；与 Node 版 PUT 行为一致：以请求体为准。 */
-    private void fillRanks(Map<String, Object> data, String id) {
-        String parentId = str(data.get("parent_id"));
+    private void fillRanks(Map<String, Object> data, long id) {
+        Long parentId = (Long) data.get("parent_id");
         if (missingRank(data.get("sibling_rank"))) {
             data.put("sibling_rank", members.maxSiblingRank(parentId, str(data.get("gender")), id));
         }
@@ -141,6 +147,19 @@ public class MemberService {
 
     private static String str(Object o) {
         return o == null ? null : String.valueOf(o);
+    }
+
+    /** parent_id 兼容数字与数字字符串（前端 select 传字符串）；空值按清空，非法格式 400。 */
+    private static Long parentIdOrNull(Object v) {
+        if (v == null) return null;
+        if (v instanceof Number n) return n.longValue();
+        String s = String.valueOf(v).trim();
+        if (s.isEmpty()) return null;
+        try {
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            throw new ApiException(400, "所选父节点不存在");
+        }
     }
 
     /** 宽容转整数：数字或数字字符串均可，非法返回 null。 */

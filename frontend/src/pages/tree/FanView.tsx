@@ -28,19 +28,19 @@ const GAPR = 6;    // 环间留白
 /* 扇形谱图：始祖为圆心、世代为环；配偶不再切走角度，而是环抱成员弧外侧的"婚环"带 */
 const FanView: React.FC<FanViewProps> = ({ user }) => {
   const { members, loading, error } = useFamilyMembers(user?.id);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [rootId, setRootId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  const [rootId, setRootId] = useState<number | null>(null);
   const [ringW, setRingW] = useState(76);
   const [innerR, setInnerR] = useState(72);
   const [showSpouse, setShowSpouse] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
   const [term, setTerm] = useState('');
-  const [panel, setPanel] = useState<{ id: string; spouse: boolean } | null>(null);
+  const [panel, setPanel] = useState<{ id: number; spouse: boolean } | null>(null);
   const initRef = useRef(false);
 
   const forest = useMemo(() => buildForest(members), [members]);
   const byId = useMemo(() => {
-    const m = new Map<string, CNode>();
+    const m = new Map<number, CNode>();
     const walk = (n: CNode) => { m.set(n.id, n); n.children.forEach(walk); };
     forest.forEach(walk);
     return m;
@@ -165,7 +165,8 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
   }, [geo, showLabels, ringW, innerR, view.s, pitch, showSpouse]);
 
   const location = useLocation();
-  const focusId = new URLSearchParams(location.search).get('focus');
+  const focusParam = new URLSearchParams(location.search).get('focus');
+  const focusId = focusParam ? Number(focusParam) : null;
   useEffect(() => {
     if (initRef.current || !geo.sectors.length) return;
     initRef.current = true;
@@ -189,7 +190,7 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const toggleFold = useCallback((id: string) => {
+  const toggleFold = useCallback((id: number) => {
     setCollapsed(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -198,7 +199,7 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
     });
   }, []);
 
-  const reroot = (id: string | null) => {
+  const reroot = (id: number | null) => {
     setRootId(id);
     setPanel(null);
     initRef.current = true;

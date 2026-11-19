@@ -1,5 +1,5 @@
 export interface User {
-  id: string;
+  id: number;
   username: string;
   email: string;
   full_name: string | null;
@@ -8,8 +8,8 @@ export interface User {
 }
 
 export interface FamilyMember {
-  id: string;
-  user_id: string;
+  id: number;
+  user_id: number | null;
   name: string;
   gender: 'male' | 'female' | 'other' | null;
   birth_date: string | null;
@@ -22,7 +22,7 @@ export interface FamilyMember {
   bio: string | null;
   notes: string | null;
   avatar_url: string | null;
-  parent_id: string | null;
+  parent_id: number | null;
   spouse_name: string | null;
   spouse_origin: string | null;
   spouse_birth_date: string | null;

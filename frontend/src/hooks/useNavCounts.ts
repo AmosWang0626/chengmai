@@ -31,7 +31,7 @@ async function load(key: string, isAdmin: boolean): Promise<NavCounts> {
   return data;
 }
 
-export function useNavCounts(userId: string | undefined, isAdmin: boolean, roleLoading = false): NavCounts | null {
+export function useNavCounts(userId: number | undefined, isAdmin: boolean, roleLoading = false): NavCounts | null {
   const [counts, setCounts] = useState<NavCounts | null>(cache?.data ?? null);
 
   useEffect(() => {

@@ -75,10 +75,10 @@ public class AuthService {
         if (token == null) {
             throw new ApiException(401, "未登录");
         }
-        String userId;
+        long userId;
         try {
             Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
-            userId = claims.getSubject();
+            userId = Long.parseLong(claims.getSubject());
         } catch (JwtException | IllegalArgumentException e) {
             throw new ApiException(401, "登录已过期，请重新登录");
         }
@@ -99,7 +99,7 @@ public class AuthService {
     /** 签发 HS256 token：sub=用户 id，附带 role，7 天过期。 */
     private String signToken(User user) {
         return Jwts.builder()
-                .subject(user.id())
+                .subject(String.valueOf(user.id()))
                 .claim("role", user.role().wire())
                 .expiration(Date.from(Instant.now().plus(7, ChronoUnit.DAYS)))
                 .signWith(key)

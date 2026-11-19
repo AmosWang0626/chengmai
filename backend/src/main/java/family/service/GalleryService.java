@@ -60,9 +60,8 @@ public class GalleryService {
         String fileName = save(file);
         String thumbName = thumbnail == null ? null : save(thumbnail);
         List<String> tags = tagsJson == null || tagsJson.isEmpty() ? List.of() : Json.toStringList(tagsJson);
-        String id = UUID.randomUUID().toString();
-        gallery.insert(new GalleryImage(
-                id, actor.id(),
+        long id = gallery.insert(new GalleryImage(
+                null, actor.id(),
                 "/uploads/gallery/" + fileName,
                 thumbName == null ? null : "/uploads/gallery/" + thumbName,
                 title == null || title.isEmpty() ? null : title,
@@ -72,7 +71,7 @@ public class GalleryService {
     }
 
     /** 审核：通过时记录时间与审核人；其他状态仅改状态位。 */
-    public GalleryImage review(String id, String statusWire, User actor) {
+    public GalleryImage review(long id, String statusWire, User actor) {
         gallery.findById(id).orElseThrow(() -> new ApiException(404, "图片不存在"));
         GalleryStatus status = GalleryStatus.parseOrNull(statusWire);
         if (status == null) {
@@ -87,7 +86,7 @@ public class GalleryService {
     }
 
     /** 部分更新标题/描述/标签，未传字段沿用原值。 */
-    public GalleryImage updateMeta(String id, Map<String, Object> body) {
+    public GalleryImage updateMeta(long id, Map<String, Object> body) {
         GalleryImage existing = gallery.findById(id)
                 .orElseThrow(() -> new ApiException(404, "图片不存在"));
         String title = body.containsKey("title") ? str(body.get("title")) : existing.title();
@@ -98,7 +97,7 @@ public class GalleryService {
     }
 
     /** 删除记录并清理原图与缩略图文件。 */
-    public void delete(String id) {
+    public void delete(long id) {
         GalleryImage existing = gallery.findById(id)
                 .orElseThrow(() -> new ApiException(404, "图片不存在"));
         deleteFiles(existing.url(), existing.thumbnailUrl());

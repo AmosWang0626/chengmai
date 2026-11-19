@@ -12,8 +12,8 @@ import java.util.Optional;
 /** 相册图片表 DAO：tags 在库中为 JSON 字符串，映射时转为 List。 */
 public class GalleryRepository {
     private static final RowMapper<GalleryImage> MAPPER = rs -> new GalleryImage(
-            rs.getString("id"),
-            rs.getString("user_id"),
+            rs.getLong("id"),
+            RowMapper.longOrNull(rs, "user_id"),
             rs.getString("url"),
             rs.getString("thumbnail_url"),
             rs.getString("title"),
@@ -22,7 +22,7 @@ public class GalleryRepository {
             GalleryStatus.fromWire(rs.getString("status")),
             rs.getString("uploaded_at"),
             rs.getString("approved_at"),
-            rs.getString("approved_by"));
+            RowMapper.longOrNull(rs, "approved_by"));
 
     private final Database db;
 
@@ -36,39 +36,40 @@ public class GalleryRepository {
     }
 
     /** 普通用户可见范围：已过审的 + 自己上传的（含待审核）。 */
-    public List<GalleryImage> findVisible(String userId) {
+    public List<GalleryImage> findVisible(long userId) {
         return db.query("SELECT * FROM gallery_images WHERE status = 'approved' OR user_id = ? ORDER BY uploaded_at DESC",
                 MAPPER, userId);
     }
 
-    public Optional<GalleryImage> findById(String id) {
+    public Optional<GalleryImage> findById(long id) {
         return db.queryOne("SELECT * FROM gallery_images WHERE id = ?", MAPPER, id);
     }
 
-    public void insert(GalleryImage image) {
-        db.update("INSERT INTO gallery_images (id, user_id, url, thumbnail_url, title, description, tags, status)" +
-                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                image.id(), image.userId(), image.url(), image.thumbnailUrl(), image.title(), image.description(),
+    /** 插入图片记录并返回自增 id。 */
+    public long insert(GalleryImage image) {
+        return db.insert("INSERT INTO gallery_images (user_id, url, thumbnail_url, title, description, tags, status)" +
+                        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                image.userId(), image.url(), image.thumbnailUrl(), image.title(), image.description(),
                 Json.write(image.tags()), image.status().wire());
     }
 
     /** 仅改状态（拒绝/隐藏等），不触碰审核时间与审核人。 */
-    public void updateStatus(String id, GalleryStatus status) {
+    public void updateStatus(long id, GalleryStatus status) {
         db.update("UPDATE gallery_images SET status = ? WHERE id = ?", status.wire(), id);
     }
 
     /** 审核通过：同时记录审核时间与审核人。 */
-    public void updateStatusApproved(String id, String approvedAt, String approvedBy) {
+    public void updateStatusApproved(long id, String approvedAt, Long approvedBy) {
         db.update("UPDATE gallery_images SET status = 'approved', approved_at = ?, approved_by = ? WHERE id = ?",
                 approvedAt, approvedBy, id);
     }
 
-    public void updateMeta(String id, String title, String description, String tagsJson) {
+    public void updateMeta(long id, String title, String description, String tagsJson) {
         db.update("UPDATE gallery_images SET title = ?, description = ?, tags = ? WHERE id = ?",
                 title, description, tagsJson, id);
     }
 
-    public void delete(String id) {
+    public void delete(long id) {
         db.update("DELETE FROM gallery_images WHERE id = ?", id);
     }
 }

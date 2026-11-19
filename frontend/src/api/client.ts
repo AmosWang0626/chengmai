@@ -113,10 +113,10 @@ export const api = {
   createMember(data: Partial<FamilyMember>) {
     return request<FamilyMember>('/api/members', { method: 'POST', body: data });
   },
-  updateMember(id: string, data: Partial<FamilyMember>) {
+  updateMember(id: number, data: Partial<FamilyMember>) {
     return request<FamilyMember>(`/api/members/${id}`, { method: 'PUT', body: data });
   },
-  deleteMember(id: string) {
+  deleteMember(id: number) {
     return request<{ ok: boolean }>(`/api/members/${id}`, { method: 'DELETE' });
   },
 
@@ -139,13 +139,13 @@ export const api = {
   uploadGalleryImage(formData: FormData) {
     return request<GalleryImage>('/api/gallery', { method: 'POST', formData });
   },
-  updateGalleryStatus(id: string, status: GalleryImage['status']) {
+  updateGalleryStatus(id: number, status: GalleryImage['status']) {
     return request<GalleryImage>(`/api/gallery/${id}/status`, { method: 'PATCH', body: { status } });
   },
-  updateGalleryImage(id: string, data: Partial<GalleryImage>) {
+  updateGalleryImage(id: number, data: Partial<GalleryImage>) {
     return request<GalleryImage>(`/api/gallery/${id}`, { method: 'PUT', body: data });
   },
-  deleteGalleryImage(id: string) {
+  deleteGalleryImage(id: number) {
     return request<{ ok: boolean }>(`/api/gallery/${id}`, { method: 'DELETE' });
   },
 
@@ -155,10 +155,10 @@ export const api = {
   createUser(username: string, password: string, role: string) {
     return request<User>('/api/users', { method: 'POST', body: { username, password, role } });
   },
-  updateUserRole(id: string, role: string) {
+  updateUserRole(id: number, role: string) {
     return request<User>(`/api/users/${id}/role`, { method: 'PUT', body: { role } });
   },
-  deleteUser(id: string) {
+  deleteUser(id: number) {
     return request<{ ok: boolean }>(`/api/users/${id}`, { method: 'DELETE' });
   },
 };

@@ -24,14 +24,14 @@ class AuthServiceTest {
 
     private AuthService service;
     private UserRepository users;
-    private final User user = new User("u1", "tester", BCRYPTJS_HASH, null, Role.ADMIN, null);
+    private long uid;
 
     @BeforeEach
     void setup() {
         Database db = Database.inMemory();
         Schema.init(db);
         users = new UserRepository(db);
-        users.insert(user);
+        uid = users.insert(new User(null, "tester", BCRYPTJS_HASH, null, Role.ADMIN, null));
         service = new AuthService(users, tempDir.resolve(".jwt-secret"));
     }
 
@@ -40,7 +40,7 @@ class AuthServiceTest {
     void acceptsBcryptjsLegacyHash() {
         AuthService.LoginResult result = service.login("tester", "123456");
         assertNotNull(result.token());
-        assertEquals("u1", result.user().id());
+        assertEquals(uid, result.user().id());
         assertEquals("tester", result.user().email());
     }
 
@@ -63,7 +63,7 @@ class AuthServiceTest {
     @DisplayName("JWT 往返与篡改拒绝")
     void jwtRoundTripAndTamperRejection() {
         String token = service.login("tester", "123456").token();
-        assertEquals("u1", service.requireUser("Bearer " + token).id());
+        assertEquals(uid, service.requireUser("Bearer " + token).id());
         assertEquals(401, assertThrows(ApiException.class, () -> service.requireUser(null)).status());
         assertEquals(401, assertThrows(ApiException.class, () -> service.requireUser("Bearer garbage")).status());
         assertEquals(401, assertThrows(ApiException.class, () -> service.requireUser("Bearer " + token + "x")).status());
@@ -73,7 +73,7 @@ class AuthServiceTest {
     @DisplayName("账号删除后 token 立即失效")
     void tokenInvalidImmediatelyAfterUserDeletion() {
         String token = service.login("tester", "123456").token();
-        users.delete("u1");
+        users.delete(uid);
         ApiException e = assertThrows(ApiException.class, () -> service.requireUser("Bearer " + token));
         assertEquals(401, e.status());
         assertEquals("账号已被删除", e.getMessage());
@@ -84,12 +84,13 @@ class AuthServiceTest {
     void persistedSecretAcceptsOldTokenAfterRestart() {
         String token = service.login("tester", "123456").token();
         AuthService restarted = new AuthService(users, tempDir.resolve(".jwt-secret"));
-        assertEquals("u1", restarted.requireUser("Bearer " + token).id());
+        assertEquals(uid, restarted.requireUser("Bearer " + token).id());
     }
 
     @Test
     @DisplayName("改密需验证旧密码")
     void changePasswordRequiresOldPassword() {
+        User user = users.findById(uid).orElseThrow();
         assertEquals(400, assertThrows(ApiException.class, () -> service.changePassword(user, "wrong", "newpass123")).status());
         assertEquals(400, assertThrows(ApiException.class, () -> service.changePassword(user, "123456", "123")).status());
         service.changePassword(user, "123456", "newpass123");

@@ -11,7 +11,7 @@ import java.util.Optional;
 /** 用户表 DAO：只负责 SQL，不含业务校验。 */
 public class UserRepository {
     private static final RowMapper<User> MAPPER = rs -> new User(
-            rs.getString("id"),
+            rs.getLong("id"),
             rs.getString("username"),
             rs.getString("password_hash"),
             rs.getString("full_name"),
@@ -24,7 +24,7 @@ public class UserRepository {
         this.db = db;
     }
 
-    public Optional<User> findById(String id) {
+    public Optional<User> findById(long id) {
         return db.queryOne("SELECT * FROM users WHERE id = ?", MAPPER, id);
     }
 
@@ -37,21 +37,21 @@ public class UserRepository {
         return db.query("SELECT * FROM users ORDER BY created_at DESC", MAPPER);
     }
 
-    /** 插入用户；created_at 由数据库默认值生成，full_name 暂不启用。 */
-    public void insert(User user) {
-        db.update("INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)",
-                user.id(), user.username(), user.passwordHash(), user.role().wire());
+    /** 插入用户并返回自增 id；created_at 由数据库默认值生成，full_name 暂不启用。 */
+    public long insert(User user) {
+        return db.insert("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                user.username(), user.passwordHash(), user.role().wire());
     }
 
-    public void updatePassword(String id, String passwordHash) {
+    public void updatePassword(long id, String passwordHash) {
         db.update("UPDATE users SET password_hash = ? WHERE id = ?", passwordHash, id);
     }
 
-    public void updateRole(String id, Role role) {
+    public void updateRole(long id, Role role) {
         db.update("UPDATE users SET role = ? WHERE id = ?", role.wire(), id);
     }
 
-    public void delete(String id) {
+    public void delete(long id) {
         db.update("DELETE FROM users WHERE id = ?", id);
     }
 

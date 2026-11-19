@@ -81,7 +81,7 @@ const DashboardV2: React.FC<DashboardV2Props> = ({ user }) => {
   }, [members, images, byId]);
 
   const genGroups = useMemo(() => {
-    const map = new Map<number, { count: number; char: string; firstId: string }>();
+    const map = new Map<number, { count: number; char: string; firstId: number }>();
     members.forEach(m => {
       if (!m.generation) return;
       const g = map.get(m.generation) || { count: 0, char: '', firstId: m.id };
@@ -117,7 +117,7 @@ const DashboardV2: React.FC<DashboardV2Props> = ({ user }) => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const focusInCanvas = (id: string) => navigate(`/tree-canvas?focus=${id}`);
+  const focusInCanvas = (id: number) => navigate(`/tree-canvas?focus=${id}`);
 
   const quickActions = [
     { label: '家谱图谱', icon: PieChart, path: '/tree-canvas', primary: true },

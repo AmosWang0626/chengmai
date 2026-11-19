@@ -11,7 +11,8 @@ interface MemberFormProps {
 
 export default function MemberForm({ user }: MemberFormProps) {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const idParam = useParams().id;
+  const id = idParam ? Number(idParam) : undefined;
   const isEdit = !!id;
   const { members, generationChars, addMember, updateMember, loading: membersLoading, getGenerationChar } = useFamilyMembers(user?.id);
 
@@ -54,7 +55,7 @@ export default function MemberForm({ user }: MemberFormProps) {
           occupation: member.occupation || '',
           education: member.education || '',
           bio: member.bio || '',
-          parent_id: member.parent_id || '',
+          parent_id: member.parent_id != null ? String(member.parent_id) : '',
           spouse_name: member.spouse_name || '',
           spouse_origin: member.spouse_origin || '',
           spouse_birth_date: member.spouse_birth_date || '',
@@ -79,7 +80,7 @@ export default function MemberForm({ user }: MemberFormProps) {
         gender: formData.gender === '' ? null : formData.gender,
         birth_date: formData.birth_date || null,
         death_date: formData.death_date || null,
-        parent_id: formData.parent_id || null,
+        parent_id: formData.parent_id ? Number(formData.parent_id) : null,
         spouse_name: formData.spouse_name.trim() || null,
         spouse_origin: formData.spouse_origin.trim() || null,
         spouse_birth_date: formData.spouse_birth_date || null,

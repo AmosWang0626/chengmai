@@ -91,7 +91,7 @@ chengmai/
 └── data/                      # ③ 数据块（git 忽略，含隐私）
     ├── family.db              #    SQLite 主库（WAL 模式）
     ├── family.db-wal / -shm   #    WAL 运行时日志（备份时需一并拷贝或先停服务）
-    ├── .jwt-secret            #    JWT 签名密钥（0600，与 Node 版共用可互通 token）
+    ├── .jwt-secret            #    JWT 签名密钥（0600）
     └── uploads/gallery/       #    相册原图与缩略图落盘
 ```
 
@@ -130,13 +130,13 @@ chengmai/
 在**仓库根目录**执行（数据与静态目录默认相对根目录解析）：
 
 ```bash
-# 构建（含 36 项单元测试）
+# 构建（含 37 项单元测试）
 mvn -f backend/pom.xml package
 
 # 运行（默认端口 8080，数据目录 ./data，静态目录 ./frontend/dist）
 java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 
-# 可选：灌入完全虚构的演示数据（仅空库；账号 admin / demo123）
+# 可选：灌入完全虚构的演示数据（仅空库；王氏四代 12 人，账号已内置）
 sqlite3 data/family.db < data/seed-demo.sql
 ```
 
@@ -173,7 +173,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 
 ### 默认账号与安全提醒
 
-仓库仅含**完全虚构**的演示种子 `data/seed-demo.sql`（四代李氏 12 人）：灌入后账号为
+仓库仅含**完全虚构**的演示种子 `data/seed-demo.sql`（王氏四代 12 人）；账号在建库时内置：
 `admin / demo123`（管理员）、`viewer / demo123`（访客）。**部署到任何非本机环境前请立即在「账号管理」改密**；
 真实家谱数据请自行录入，切勿提交 / 推送真实数据、照片或密钥（详见 [SECURITY.md](SECURITY.md)）。
 `.jwt-secret` 为签名密钥，权限 0600，切勿入库 / 上传 / 分享。
@@ -207,7 +207,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 | --- | --- |
 | `family.db` | SQLite 主库，WAL 模式 + 外键开启；首次启动按 `schema.sql` 自动建表 |
 | `family.db-wal` / `-shm` | WAL 运行时文件；**冷备份请先停服务**，或三文件一并拷贝 |
-| `.jwt-secret` | HS256 密钥文件；不存在时自动生成并 chmod 0600；与 Node 版共用同一份可互通 token |
+| `.jwt-secret` | HS256 密钥文件；不存在时自动生成并 chmod 0600 |
 | `uploads/gallery/` | 相册原图 + `thumb_` 缩略图；删除图片记录时同步删文件 |
 
 ### 表结构概览
@@ -223,7 +223,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 
 - **备份**：停服务后整目录拷贝 `data/`；
 - **迁移**：把 `data/` 放到新机器并用 `DATA_DIR` 指向它即可，schema 自动补齐；
-- **与 Node 版互通**：姊妹项目 `../family-manage`（Node/Express 后端）使用**完全相同的 API 契约与库结构**，两版可共用同一份 `data/`（含 `.jwt-secret`，token 互通）。注意共用时避免两服务同时写库。
+- **与 Node 版不互通**：姊妹项目 `../family-manage`（Node/Express 后端）为 TEXT 主键与旧账号契约；本版已改数字自增主键（10000 起）并内置账号，**库结构不再兼容，不可共用 `data/`**。
 
 > `data/` 含真实家族隐私与密码哈希，已被 `.gitignore` 整体忽略——它作为本地运行块存在，不进入版本库。
 
@@ -317,8 +317,8 @@ curl -s localhost:8080/api/members -H "Authorization: Bearer <token>" | head -c 
 - 许可证：**MIT**（见 [LICENSE](LICENSE)）。
 - **代码与数据彻底分离**：仓库只含代码、文档与完全虚构的演示种子；真实家谱（`data/family.db`、
   `uploads/`、`.jwt-secret`）一律被 `.gitignore` 忽略，仅放行 `data/README.md` 与 `data/seed-demo.sql`。
-- 克隆后体验：`./start.sh` 自动建表 → `sqlite3 data/family.db < data/seed-demo.sql` 灌入虚构李氏四代 12 人 →
-  `admin / demo123` 登录；真实数据自行录入，**永不入库**。
+- 克隆后体验：`./start.sh` 自动建表并内置 `admin / demo123`、`viewer / demo123` → 可选
+  `sqlite3 data/family.db < data/seed-demo.sql` 灌入虚构王氏四代 12 人；真实数据自行录入，**永不入库**。
 - 安全设计（本地化存储 / 密钥自动生成 0600 / bcrypt / JWT / 角色矩阵 / 上传白名单 / 列白名单防注入）见 [SECURITY.md](SECURITY.md)。
 - 无 git 历史包袱：本项目以干净起点开源，不存在历史提交中的隐私残留。
 
@@ -326,5 +326,5 @@ curl -s localhost:8080/api/members -H "Authorization: Bearer <token>" | head -c 
 
 ## 十二、相关项目
 
-- `../family-manage`：Node/Express 版后端 + 同前端契约的实现（含 Supabase 迁移脚本与 CSV 种子），与本 Java 版**数据与 token 互通**；
+- `../family-manage`：Node/Express 版后端 + 同前端契约的实现（含 Supabase 迁移脚本与 CSV 种子）；本版改数字主键后**与其数据、token 不再互通**；
 - 历史：初版基于 Supabase，后迁移 SQLite + Node，再克隆出本 Java 版并完成前后端分离三块改造。

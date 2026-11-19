@@ -12,7 +12,7 @@ interface AccountManagementProps {
 }
 
 interface UserAccount {
-  id: string;
+  id: number;
   email: string;
   created_at: string;
   role: UserRole;
@@ -37,7 +37,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   const fetchAccounts = async () => {
     try {
@@ -154,7 +154,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
     }
   };
 
-  const handleDeleteAccount = async (id: string) => {
+  const handleDeleteAccount = async (id: number) => {
     try {
       await api.deleteUser(id);
       setAccounts(accounts.filter(a => a.id !== id));

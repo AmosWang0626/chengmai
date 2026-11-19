@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface BatchChildrenModalProps {
   user: User | null;
-  parentIds: string[];
+  parentIds: number[];
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -39,14 +39,14 @@ export default function BatchChildrenModal({ user, parentIds, isOpen, onClose, o
   React.useEffect(() => {
     if (isOpen && selectedParents.length > 0) {
       if (selectedParents.length === 1) {
-        setRows([{ id: '1', name: '', gender: 'male', generation: childGeneration, parent_id: selectedParents[0].id, spouse_name: '', sibling_rank: 1 }]);
+        setRows([{ id: '1', name: '', gender: 'male', generation: childGeneration, parent_id: String(selectedParents[0].id), spouse_name: '', sibling_rank: 1 }]);
       } else {
         setRows(selectedParents.map((parent, index) => ({
           id: Date.now().toString() + index,
           name: '',
           gender: 'male',
           generation: childGeneration,
-          parent_id: parent.id,
+          parent_id: String(parent.id),
           spouse_name: '',
           sibling_rank: 1
         })));
@@ -60,7 +60,7 @@ export default function BatchChildrenModal({ user, parentIds, isOpen, onClose, o
       name: '',
       gender: 'male',
       generation: childGeneration,
-      parent_id: selectedParents[0]?.id || '',
+      parent_id: selectedParents[0] ? String(selectedParents[0].id) : '',
       spouse_name: '',
       sibling_rank: 1
     }]);
@@ -98,7 +98,7 @@ export default function BatchChildrenModal({ user, parentIds, isOpen, onClose, o
           gender: row.gender || null,
           generation: row.generation,
           generation_char: getGenerationChar(row.generation),
-          parent_id: row.parent_id || null,
+          parent_id: row.parent_id ? Number(row.parent_id) : null,
           spouse_name: row.spouse_name.trim() || null,
           sibling_rank: row.sibling_rank
         };

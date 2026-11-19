@@ -11,7 +11,7 @@ interface BatchEditMemberFormProps {
 }
 
 interface EditableMember {
-  id: string;
+  id: number;
   name: string;
   gender: 'male' | 'female' | 'other' | '';
   generation: number;
@@ -43,7 +43,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
         gender: m.gender || '',
         generation: m.generation || 21,
         generation_char: m.generation_char || '',
-        parent_id: m.parent_id || '',
+        parent_id: m.parent_id != null ? String(m.parent_id) : '',
         spouse_name: m.spouse_name || '',
         sibling_rank: m.sibling_rank || 1,
         family_rank: m.family_rank || 1,
@@ -65,7 +65,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
 
   const selectedCount = editableMembers.filter(m => m.selected).length;
 
-  const toggleSelect = (id: string) => {
+  const toggleSelect = (id: number) => {
     setEditableMembers(prev => prev.map(m =>
       m.id === id ? { ...m, selected: !m.selected } : m
     ));
@@ -80,7 +80,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
     ));
   };
 
-  const updateField = (id: string, field: keyof EditableMember, value: string | number) => {
+  const updateField = (id: number, field: keyof EditableMember, value: string | number) => {
     setEditableMembers(prev => prev.map(m => {
       if (m.id !== id) return m;
       const updated = { ...m, [field]: value };
@@ -107,7 +107,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
           gender: member.gender || null,
           generation: member.generation,
           generation_char: getGenerationChar(member.generation),
-          parent_id: member.parent_id || null,
+          parent_id: member.parent_id ? Number(member.parent_id) : null,
           spouse_name: member.spouse_name.trim() || null,
           sibling_rank: member.sibling_rank,
           family_rank: member.family_rank

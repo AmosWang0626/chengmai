@@ -33,16 +33,18 @@ class GalleryServiceTest {
     private GalleryService service;
     private GalleryRepository repo;
     private UserRepository users;
-    private final User admin = new User("a1", "admin", "x", null, Role.ADMIN, null);
-    private final User viewer = new User("v1", "viewer", "x", null, Role.VIEWER, null);
+    private User admin;
+    private User viewer;
 
     @BeforeEach
     void setup() {
         Database db = Database.inMemory();
         Schema.init(db);
+        // 建库 SQL 内置 admin/viewer，清掉以隔离测试
+        db.execute("DELETE FROM users");
         users = new UserRepository(db);
-        users.insert(admin);
-        users.insert(viewer);
+        admin = users.findById(users.insert(new User(null, "admin", "x", null, Role.ADMIN, null))).orElseThrow();
+        viewer = users.findById(users.insert(new User(null, "viewer", "x", null, Role.VIEWER, null))).orElseThrow();
         repo = new GalleryRepository(db);
         service = new GalleryService(repo, uploads, 20L * 1024 * 1024);
     }
@@ -80,7 +82,7 @@ class GalleryServiceTest {
         GalleryImage approved = service.review(img.id(), "approved", admin);
         assertEquals(GalleryStatus.APPROVED, approved.status());
         assertNotNull(approved.approvedAt());
-        assertEquals("a1", approved.approvedBy());
+        assertEquals(admin.id(), approved.approvedBy());
         assertEquals(400, assertThrows(ApiException.class, () -> service.review(img.id(), "bogus", admin)).status());
     }
 
@@ -90,8 +92,7 @@ class GalleryServiceTest {
         GalleryImage pending = service.upload(viewer, png("a.png"), null, null, null, null);
         assertEquals(1, service.list(admin).size(), "管理员看全部");
         assertEquals(1, service.list(viewer).size(), "上传者看自己的待审核图");
-        User other = new User("v2", "other", "x", null, Role.VIEWER, null);
-        users.insert(other);
+        User other = users.findById(users.insert(new User(null, "other", "x", null, Role.VIEWER, null))).orElseThrow();
         assertEquals(0, service.list(other).size(), "其他人看不到待审核图");
         service.review(pending.id(), "approved", admin);
         assertEquals(1, service.list(other).size(), "过审后所有人可见");

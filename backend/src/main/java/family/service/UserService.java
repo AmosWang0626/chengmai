@@ -7,7 +7,6 @@ import family.repository.UserRepository;
 import org.mindrot.jbcrypt.BCrypt;
 
 import java.util.List;
-import java.util.UUID;
 
 /** 账号管理服务：创建、改角色、删除，含“最后管理员”与“自删”保护。 */
 public class UserService {
@@ -38,14 +37,13 @@ public class UserService {
         if (users.findByUsername(name).isPresent()) {
             throw new ApiException(409, "账号已存在");
         }
-        User user = new User(UUID.randomUUID().toString(), name,
-                BCrypt.hashpw(password, BCrypt.gensalt(10)), null, role, null);
-        users.insert(user);
-        return UserView.from(users.findById(user.id()).orElseThrow());
+        long id = users.insert(new User(null, name,
+                BCrypt.hashpw(password, BCrypt.gensalt(10)), null, role, null));
+        return UserView.from(users.findById(id).orElseThrow());
     }
 
     /** 修改角色；不允许把最后一名管理员降级。 */
-    public UserView updateRole(String id, String roleWire) {
+    public UserView updateRole(long id, String roleWire) {
         User target = users.findById(id).orElseThrow(() -> new ApiException(404, "账号不存在"));
         Role role = Role.parseOrNull(roleWire);
         if (role == null) {
@@ -59,8 +57,8 @@ public class UserService {
     }
 
     /** 删除账号：禁止自删，禁止删掉最后一名管理员。 */
-    public void delete(String id, User actor) {
-        if (id.equals(actor.id())) {
+    public void delete(long id, User actor) {
+        if (actor.id() == id) {
             throw new ApiException(400, "不能删除自己的账号");
         }
         User target = users.findById(id).orElseThrow(() -> new ApiException(404, "账号不存在"));

@@ -3,7 +3,7 @@ import { api } from '../api/client';
 
 export type UserRole = 'admin' | 'viewer';
 
-export function useUserRole(userId: string | undefined) {
+export function useUserRole(userId: number | undefined) {
   const [role, setRole] = useState<UserRole>('viewer');
   const [loading, setLoading] = useState(true);
 

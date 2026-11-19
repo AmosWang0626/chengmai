@@ -20,13 +20,16 @@ import static org.junit.jupiter.api.Assertions.*;
 /** 成员服务测试：字辈自动填充、排行计算、部分更新与校验（内存库隔离）。 */
 class MemberServiceTest {
     private MemberService service;
-    private final User admin = new User("u1", "admin", "x", null, Role.ADMIN, null);
+    private User admin;
 
     @BeforeEach
     void setup() {
         Database db = Database.inMemory();
         Schema.init(db);
-        new UserRepository(db).insert(admin);
+        // 建库 SQL 内置 admin/viewer，清掉以隔离测试
+        db.execute("DELETE FROM users");
+        UserRepository users = new UserRepository(db);
+        admin = users.findById(users.insert(new User(null, "admin", "x", null, Role.ADMIN, null))).orElseThrow();
         MemberRepository members = new MemberRepository(db);
         GenerationCharRepository chars = new GenerationCharRepository(db);
         chars.insert(25, "问", false);
@@ -99,9 +102,16 @@ class MemberServiceTest {
     }
 
     @Test
+    @DisplayName("更新时父节点不存在 400")
+    void updateWithNonexistentParentReturns400() {
+        FamilyMember m = service.create(admin, body("name", "子"));
+        assertEquals(400, assertThrows(ApiException.class, () -> service.update(m.id(), body("parent_id", 999999))).status());
+    }
+
+    @Test
     @DisplayName("更新不存在的成员 404")
     void updateNonexistentMemberReturns404() {
-        ApiException e = assertThrows(ApiException.class, () -> service.update("nope", body("name", "x")));
+        ApiException e = assertThrows(ApiException.class, () -> service.update(999999L, body("name", "x")));
         assertEquals(404, e.status());
     }
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
 import { GalleryImage } from '../types/gallery';
 
-export function useGallery(userId: string | undefined) {
+export function useGallery(userId: number | undefined) {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,17 +35,17 @@ export function useGallery(userId: string | undefined) {
     await fetchImages();
   };
 
-  const updateImageStatus = async (id: string, status: GalleryImage['status']) => {
+  const updateImageStatus = async (id: number, status: GalleryImage['status']) => {
     await api.updateGalleryStatus(id, status);
     await fetchImages();
   };
 
-  const deleteImage = async (id: string) => {
+  const deleteImage = async (id: number) => {
     await api.deleteGalleryImage(id);
     await fetchImages();
   };
 
-  const updateImage = async (id: string, data: Partial<GalleryImage>) => {
+  const updateImage = async (id: number, data: Partial<GalleryImage>) => {
     await api.updateGalleryImage(id, data);
     await fetchImages();
   };

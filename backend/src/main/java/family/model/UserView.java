@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 /** 用户对外视图：不含密码哈希；email 与 username 同值（沿用 Node 版契约）。 */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record UserView(
-        String id,
+        Long id,
         String username,
         String email,
         String fullName,

@@ -16,12 +16,12 @@ interface FamilyTreeProps {
 }
 
 interface TreeViewNode {
-  id: string;
+  id: number;
   node: TreeNode;
   level: number;
   isExpanded: boolean;
   hasChildren: boolean;
-  path: string[];
+  path: number[];
 }
 
 const genderTint = (g: string | null) =>
@@ -29,14 +29,14 @@ const genderTint = (g: string | null) =>
 const genderSym = (g: string | null) => g === 'male' ? '♂' : g === 'female' ? '♀' : '○';
 
 const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
-  const [selectedRootId, setSelectedRootId] = useState<string | null>(null);
+  const [selectedRootId, setSelectedRootId] = useState<number | null>(null);
   const [showRootSelector, setShowRootSelector] = useState(false);
   const { tree, members, loading } = useFamilyMembers(user?.id, selectedRootId);
   const { isAdmin } = useUserRole(user?.id);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
   const [scale, setScale] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [highlightedNode, setHighlightedNode] = useState<string | null>(null);
+  const [highlightedNode, setHighlightedNode] = useState<number | null>(null);
   const initRef = useRef(false);
 
   /* 切换起点时重新初始化展开状态 */
@@ -58,7 +58,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
     [...members].sort((a, b) => (a.generation || 0) - (b.generation || 0) || a.name.localeCompare(b.name, 'zh')),
     [members]);
 
-  const toggleNode = (nodeId: string) => {
+  const toggleNode = (nodeId: number) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
       if (next.has(nodeId)) next.delete(nodeId);
@@ -68,14 +68,14 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
   };
 
   const expandAll = () => {
-    const all = new Set<string>();
+    const all = new Set<number>();
     const collect = (nodes: TreeNode[]) => nodes.forEach(n => { all.add(n.id); collect(n.children); });
     collect(tree);
     setExpandedNodes(all);
   };
   const collapseAll = () => setExpandedNodes(new Set());
 
-  const findNodePath = (nodes: TreeNode[], targetId: string, currentPath: string[] = []): string[] | null => {
+  const findNodePath = (nodes: TreeNode[], targetId: number, currentPath: number[] = []): number[] | null => {
     for (const node of nodes) {
       if (node.id === targetId) return [...currentPath, node.id];
       const found = findNodePath(node.children, targetId, [...currentPath, node.id]);
@@ -98,7 +98,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
     }
   };
 
-  const buildTreeView = useCallback((nodes: TreeNode[], level = 0, path: string[] = []): TreeViewNode[] => {
+  const buildTreeView = useCallback((nodes: TreeNode[], level = 0, path: number[] = []): TreeViewNode[] => {
     const result: TreeViewNode[] = [];
     nodes.forEach(node => {
       const hasChildren = node.children.length > 0;

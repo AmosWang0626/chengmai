@@ -5,9 +5,9 @@
 
 | 文件 | 说明 | 入库 |
 | --- | --- | --- |
-| `family.db` | SQLite 主库（WAL 模式 + 外键开启）；后端首次启动按 `backend/src/main/resources/schema.sql` 自动建表 | ✗ |
+| `family.db` | SQLite 主库（WAL 模式 + 外键开启）；后端首次启动按 `backend/src/main/resources/schema.sql` 自动建表并内置 admin/viewer 账号 | ✗ |
 | `family.db-wal` / `-shm` | WAL 运行时日志；冷备份请先停服务，或三文件一并拷贝 | ✗ |
-| `.jwt-secret` | JWT HS256 密钥（0600）；缺失时后端自动生成；与 Node 版共用可互通 token | ✗ |
+| `.jwt-secret` | JWT HS256 密钥（0600）；缺失时后端自动生成 | ✗ |
 | `uploads/gallery/` | 相册原图与 `thumb_` 缩略图；删除图片记录时同步删除文件 | ✗ |
 | `README.md` / `seed-demo.sql` | 说明与**完全虚构**的演示种子 | ✓ |
 
@@ -17,9 +17,9 @@
 # 1) 启动后端即自动建表（空库）
 ./start.sh
 
-# 2) 可选：灌入虚构演示数据（仅空库；四代李氏 12 人 + 演示账号）
+# 2) 可选：灌入虚构演示数据（仅空库；王氏四代 12 人，账号建库时已内置）
 sqlite3 data/family.db < data/seed-demo.sql
-#    账号：admin / demo123（管理员）、viewer / demo123（访客）
+#    账号：admin / demo123（管理员）、viewer / demo123（访客），由 schema.sql 内置
 #    体验后请立即在「账号管理」改密
 ```
 
@@ -35,6 +35,6 @@ cp -R data /backup/family-data-$(date +%F)
 
 表结构：`users`（三档角色）、`family_members`（parent_id 自引用树 + 世代/字辈/排行 + 配偶字段）、
 `generation_chars`（世代唯一）、`gallery_images`（审核状态机 + JSON tags）。
-与姊妹项目 Node 版库结构完全一致，可共用本目录，但避免两服务同时写库。
+库结构为数字自增主键（10000 起），与姊妹项目 Node 版（TEXT 主键）**不兼容**，请勿共用本目录。
 
 完整说明见仓库根 [README.md](../README.md)。

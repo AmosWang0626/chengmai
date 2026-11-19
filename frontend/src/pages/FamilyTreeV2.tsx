@@ -35,8 +35,8 @@ const yearsText = (b: string | null, d: string | null) => {
 
 interface MemberCardProps {
   member: TreeNode;
-  expandedMembers: Set<string>;
-  onToggleMember: (id: string) => void;
+  expandedMembers: Set<number>;
+  onToggleMember: (id: number) => void;
   isAdmin: boolean;
 }
 
@@ -107,7 +107,7 @@ const FamilyTreeV2: React.FC<FamilyTreeV2Props> = ({ user }) => {
   const { tree, loading } = useFamilyMembers(user?.id);
   const { isAdmin } = useUserRole(user?.id);
   const [expandedGenerations, setExpandedGenerations] = useState<Set<number>>(new Set());
-  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
+  const [expandedMembers, setExpandedMembers] = useState<Set<number>>(new Set());
   const [scale, setScale] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGeneration, setSelectedGeneration] = useState<number | null>(null);
@@ -150,7 +150,7 @@ const FamilyTreeV2: React.FC<FamilyTreeV2Props> = ({ user }) => {
     setMobileNavOpen(false);
   }, []);
 
-  const toggleMember = useCallback((id: string) => {
+  const toggleMember = useCallback((id: number) => {
     setExpandedMembers(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);

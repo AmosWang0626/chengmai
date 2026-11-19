@@ -27,7 +27,7 @@ export default function MemberList({ user }: MemberListProps) {
   const [sortField, setSortField] = useState<'generation' | 'sibling_rank' | 'family_rank' | 'name'>('generation');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isBatchChildrenModalOpen, setIsBatchChildrenModalOpen] = useState(false);
-  const [selectedParentIds, setSelectedParentIds] = useState<string[]>([]);
+  const [selectedParentIds, setSelectedParentIds] = useState<number[]>([]);
 
   const memberChildrenCount = useMemo(() => {
     const countMap: Record<string, number> = {};
@@ -70,7 +70,7 @@ export default function MemberList({ user }: MemberListProps) {
     currentPage * itemsPerPage
   );
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('确定要删除这位家人吗？')) return;
     try {
       await deleteMember(id);
@@ -79,7 +79,7 @@ export default function MemberList({ user }: MemberListProps) {
     }
   };
 
-  const openBatchChildrenModal = (parentId: string) => {
+  const openBatchChildrenModal = (parentId: number) => {
     setSelectedParentIds([parentId]);
     setIsBatchChildrenModalOpen(true);
   };

@@ -23,7 +23,7 @@ const yearsShort = (b: string | null, d: string | null) => {
    融合世系画布的夫妻双卡信息（婚线♥、生卒、性别、卡框）与折叠/详情/搜索能力 */
 const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
   const { members, loading, error, generationChars } = useFamilyMembers(user?.id);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [font, setFont] = useState(15);
   const [gap, setGap] = useState(26);
   const [level, setLevel] = useState(250);
@@ -31,9 +31,9 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
   const [showNotes, setShowNotes] = useState(true);
   const [frame, setFrame] = useState(true);
   const [term, setTerm] = useState('');
-  const [panel, setPanel] = useState<{ id: string; spouse: boolean } | null>(null);
+  const [panel, setPanel] = useState<{ id: number; spouse: boolean } | null>(null);
   const initRef = useRef(false);
-  const pendingFocus = useRef<string | null>(null);
+  const pendingFocus = useRef<number | null>(null);
 
   const CW = 76, CH = 190, SW = 56, SH = 170, MGAP = 12, PAD = 70;
   const opts: LayoutOpts = useMemo(() => ({
@@ -44,7 +44,7 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
 
   const placed = useMemo(() => {
     const roots = buildForest(members);
-    const byId = new Map<string, CNode>();
+    const byId = new Map<number, CNode>();
     const collect = (n: CNode) => { byId.set(n.id, n); n.children.forEach(collect); };
     roots.forEach(collect);
     return { roots, byId, ...layoutTree(roots, collapsed, opts) };
@@ -76,7 +76,8 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
   const memberX = (n: CNode) => n.x + (showSpouse && n.spouse_name ? SW + MGAP : 0);
 
   const location = useLocation();
-  const focusId = new URLSearchParams(location.search).get('focus');
+  const focusParam = new URLSearchParams(location.search).get('focus');
+  const focusId = focusParam ? Number(focusParam) : null;
   useEffect(() => {
     if (initRef.current || !placed.roots.length) return;
     const vp = viewportRef.current;
@@ -111,7 +112,7 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const toggleFold = useCallback((id: string) => {
+  const toggleFold = useCallback((id: number) => {
     pendingFocus.current = id;
     setCollapsed(prev => {
       const next = new Set(prev);
@@ -122,14 +123,14 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
   }, []);
 
   /* 整支操作：含该节点与全部后代 */
-  const descIds = useCallback((n: CNode): string[] => n.children.flatMap(c => [c.id, ...descIds(c)]), []);
-  const collapseSubtree = useCallback((id: string) => {
+  const descIds = useCallback((n: CNode): number[] => n.children.flatMap(c => [c.id, ...descIds(c)]), []);
+  const collapseSubtree = useCallback((id: number) => {
     const n = placedRef.current.byId.get(id);
     if (!n) return;
     pendingFocus.current = id;
     setCollapsed(prev => new Set([...prev, id, ...descIds(n)]));
   }, [descIds]);
-  const expandSubtree = useCallback((id: string) => {
+  const expandSubtree = useCallback((id: number) => {
     const n = placedRef.current.byId.get(id);
     if (!n) return;
     const remove = new Set([id, ...descIds(n)]);
@@ -137,7 +138,7 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
     setCollapsed(prev => new Set([...prev].filter(x => !remove.has(x))));
   }, [descIds]);
   const collapseAllNodes = useCallback(() => {
-    const ids = new Set<string>();
+    const ids = new Set<number>();
     placedRef.current.byId.forEach(n => { if (n.children.length) ids.add(n.id); });
     pendingFocus.current = placedRef.current.roots[0]?.id ?? null;
     setCollapsed(ids);

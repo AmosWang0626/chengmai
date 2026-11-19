@@ -80,7 +80,7 @@ export default function BatchMemberForm({ user }: BatchMemberFormProps) {
           gender: row.gender || null,
           generation: row.generation,
           generation_char: getGenerationChar(row.generation),
-          parent_id: row.parent_id || null,
+          parent_id: row.parent_id ? Number(row.parent_id) : null,
           spouse_name: row.spouse_name.trim() || null,
           sibling_rank: row.sibling_rank
         };

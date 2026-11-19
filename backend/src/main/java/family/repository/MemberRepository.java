@@ -13,8 +13,8 @@ import java.util.Set;
 /** 家族成员表 DAO：只负责 SQL，不含业务校验。 */
 public class MemberRepository {
     private static final RowMapper<FamilyMember> MAPPER = rs -> new FamilyMember(
-            rs.getString("id"),
-            rs.getString("user_id"),
+            rs.getLong("id"),
+            RowMapper.longOrNull(rs, "user_id"),
             rs.getString("name"),
             rs.getString("gender"),
             rs.getString("birth_date"),
@@ -26,7 +26,7 @@ public class MemberRepository {
             rs.getString("education"),
             rs.getString("bio"),
             rs.getString("avatar_url"),
-            rs.getString("parent_id"),
+            RowMapper.longOrNull(rs, "parent_id"),
             (Integer) rs.getObject("generation"),
             rs.getString("generation_char"),
             (Integer) rs.getObject("sibling_rank"),
@@ -57,27 +57,27 @@ public class MemberRepository {
         return db.query("SELECT * FROM family_members ORDER BY generation ASC, birth_date ASC, created_at ASC", MAPPER);
     }
 
-    public Optional<FamilyMember> findById(String id) {
+    public Optional<FamilyMember> findById(long id) {
         return db.queryOne("SELECT * FROM family_members WHERE id = ?", MAPPER, id);
     }
 
-    public boolean existsById(String id) {
-        return db.queryOne("SELECT id FROM family_members WHERE id = ?", rs -> rs.getString("id"), id).isPresent();
+    public boolean existsById(long id) {
+        return db.queryOne("SELECT id FROM family_members WHERE id = ?", rs -> rs.getLong("id"), id).isPresent();
     }
 
-    /** 插入成员；generation 缺省按 1 处理（COALESCE，与 Node 版一致），时间戳走数据库默认值。 */
-    public void insert(FamilyMember m) {
-        db.update("INSERT INTO family_members (id, user_id, name, gender, birth_date, death_date, phone, email, address," +
+    /** 插入成员并返回自增 id；generation 缺省按 1 处理（COALESCE），时间戳走数据库默认值。 */
+    public long insert(FamilyMember m) {
+        return db.insert("INSERT INTO family_members (user_id, name, gender, birth_date, death_date, phone, email, address," +
                         " occupation, education, bio, avatar_url, parent_id, generation, generation_char, sibling_rank, family_rank," +
                         " spouse_name, spouse_origin, spouse_birth_date, spouse_death_date, notes)" +
-                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 1), ?, ?, ?, ?, ?, ?, ?, ?)",
-                m.id(), m.userId(), m.name(), m.gender(), m.birthDate(), m.deathDate(), m.phone(), m.email(), m.address(),
+                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 1), ?, ?, ?, ?, ?, ?, ?, ?)",
+                m.userId(), m.name(), m.gender(), m.birthDate(), m.deathDate(), m.phone(), m.email(), m.address(),
                 m.occupation(), m.education(), m.bio(), m.avatarUrl(), m.parentId(), m.generation(), m.generationChar(),
                 m.siblingRank(), m.familyRank(), m.spouseName(), m.spouseOrigin(), m.spouseBirthDate(), m.spouseDeathDate(), m.notes());
     }
 
     /** 按传入字段动态更新（部分更新语义）；字段名必须在白名单内，否则抛异常。 */
-    public void update(String id, Map<String, Object> fields) {
+    public void update(long id, Map<String, Object> fields) {
         List<String> sets = new ArrayList<>();
         List<Object> values = new ArrayList<>();
         for (Map.Entry<String, Object> e : fields.entrySet()) {
@@ -93,19 +93,19 @@ public class MemberRepository {
     }
 
     /** 删除成员；子女的 parent_id 由外键 ON DELETE SET NULL 自动置空。 */
-    public void delete(String id) {
+    public void delete(long id) {
         db.update("DELETE FROM family_members WHERE id = ?", id);
     }
 
     /** 下一个同辈排行：同一父亲、同性别中的 MAX+1；IS ? 写法兼容 parentId 为 null。 */
-    public int maxSiblingRank(String parentId, String gender, String excludeId) {
+    public int maxSiblingRank(Long parentId, String gender, long excludeId) {
         return db.queryOne(
                 "SELECT COALESCE(MAX(sibling_rank), 0) + 1 AS r FROM family_members WHERE parent_id IS ? AND gender IS ? AND id != ?",
                 rs -> rs.getInt("r"), parentId, gender, excludeId).orElse(1);
     }
 
     /** 下一个家庭排序：同一父亲下全部子女中的 MAX+1（不分性别）。 */
-    public int maxFamilyRank(String parentId, String excludeId) {
+    public int maxFamilyRank(Long parentId, long excludeId) {
         return db.queryOne(
                 "SELECT COALESCE(MAX(family_rank), 0) + 1 AS r FROM family_members WHERE parent_id IS ? AND id != ?",
                 rs -> rs.getInt("r"), parentId, excludeId).orElse(1);

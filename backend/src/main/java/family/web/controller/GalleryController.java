@@ -1,9 +1,11 @@
 package family.web.controller;
 
+import family.service.ApiException;
 import family.service.GalleryService;
 import family.service.GalleryService.UploadFile;
 import family.util.Json;
 import io.javalin.config.RoutesConfig;
+import io.javalin.http.Context;
 import io.javalin.http.UploadedFile;
 
 import java.util.Map;
@@ -31,15 +33,24 @@ public class GalleryController {
         });
 
         routes.patch("/api/gallery/{id}/status", ctx ->
-                ctx.json(service.review(ctx.pathParam("id"), str(Json.toMap(ctx.body()).get("status")), user(ctx))));
+                ctx.json(service.review(idParam(ctx), str(Json.toMap(ctx.body()).get("status")), user(ctx))));
 
         routes.put("/api/gallery/{id}", ctx ->
-                ctx.json(service.updateMeta(ctx.pathParam("id"), Json.toMap(ctx.body()))));
+                ctx.json(service.updateMeta(idParam(ctx), Json.toMap(ctx.body()))));
 
         routes.delete("/api/gallery/{id}", ctx -> {
-            service.delete(ctx.pathParam("id"));
+            service.delete(idParam(ctx));
             ctx.json(Map.of("ok", true));
         });
+    }
+
+    /** 路径参数转 long；非数字按“不存在”处理。 */
+    private static long idParam(Context ctx) {
+        try {
+            return Long.parseLong(ctx.pathParam("id"));
+        } catch (NumberFormatException e) {
+            throw new ApiException(404, "图片不存在");
+        }
     }
 
     /** Javalin 上传文件 → 服务层内存表示（读尽字节流）。 */

@@ -33,7 +33,7 @@ export const yearsText = (b: string | null, d: string | null) => {
 };
 
 export function buildForest(members: FamilyMember[]): CNode[] {
-  const byId = new Map<string, CNode>(members.map(m => [m.id, { ...m, children: [], x: 0, y: 0, subW: 0 }]));
+  const byId = new Map<number, CNode>(members.map(m => [m.id, { ...m, children: [], x: 0, y: 0, subW: 0 }]));
   const roots: CNode[] = [];
   for (const n of byId.values()) {
     const parent = n.parent_id ? byId.get(n.parent_id) : undefined;
@@ -46,7 +46,7 @@ export function buildForest(members: FamilyMember[]): CNode[] {
 }
 
 /* tidy tree：夫妻为单元，子树宽自底向上；mirror 用于谱页右起阅读 */
-export function layoutTree(roots: CNode[], collapsed: Set<string>, o: LayoutOpts) {
+export function layoutTree(roots: CNode[], collapsed: Set<number>, o: LayoutOpts) {
   let maxDepth = 0;
   const measure = (n: CNode): void => {
     const uw = unitWidth(n, o);

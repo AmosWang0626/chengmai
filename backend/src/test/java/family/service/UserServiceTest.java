@@ -16,14 +16,16 @@ import static org.junit.jupiter.api.Assertions.*;
 class UserServiceTest {
     private UserService service;
     private UserRepository users;
-    private final User admin = new User("a1", "admin", "x", null, Role.ADMIN, null);
+    private User admin;
 
     @BeforeEach
     void setup() {
         Database db = Database.inMemory();
         Schema.init(db);
+        // 建库 SQL 内置 admin/viewer，清掉以便隔离测试“最后管理员”保护
+        db.execute("DELETE FROM users");
         users = new UserRepository(db);
-        users.insert(admin);
+        admin = users.findById(users.insert(new User(null, "admin", "x", null, Role.ADMIN, null))).orElseThrow();
         service = new UserService(users);
     }
 
@@ -34,6 +36,7 @@ class UserServiceTest {
         assertEquals("testuser", v.username());
         assertEquals("testuser", v.email());
         assertEquals(Role.VIEWER, v.role());
+        assertTrue(v.id() >= 10000, "自增 id 从 10000 起");
     }
 
     @Test
@@ -54,7 +57,7 @@ class UserServiceTest {
     @Test
     @DisplayName("最后管理员不可降级")
     void lastAdminCannotBeDemoted() {
-        ApiException e = assertThrows(ApiException.class, () -> service.updateRole("a1", "viewer"));
+        ApiException e = assertThrows(ApiException.class, () -> service.updateRole(admin.id(), "viewer"));
         assertEquals(400, e.status());
         assertEquals("至少保留一名管理员", e.getMessage());
     }
@@ -62,23 +65,22 @@ class UserServiceTest {
     @Test
     @DisplayName("最后管理员不可删除")
     void lastAdminCannotBeDeleted() {
-        User other = new User("a2", "other", "x", null, Role.VIEWER, null);
-        users.insert(other);
-        assertEquals(400, assertThrows(ApiException.class, () -> service.delete("a1", other)).status());
+        User other = users.findById(users.insert(new User(null, "other", "x", null, Role.VIEWER, null))).orElseThrow();
+        assertEquals(400, assertThrows(ApiException.class, () -> service.delete(admin.id(), other)).status());
     }
 
     @Test
     @DisplayName("有第二名管理员时可降级")
     void adminCanBeDemotedWhenSecondAdminExists() {
         service.create("admin2", "123456", "admin");
-        UserView v = service.updateRole("a1", "viewer");
+        UserView v = service.updateRole(admin.id(), "viewer");
         assertEquals(Role.VIEWER, v.role());
     }
 
     @Test
     @DisplayName("不能删除自己")
     void cannotDeleteSelf() {
-        ApiException e = assertThrows(ApiException.class, () -> service.delete("a1", admin));
+        ApiException e = assertThrows(ApiException.class, () -> service.delete(admin.id(), admin));
         assertEquals(400, e.status());
         assertEquals("不能删除自己的账号", e.getMessage());
     }

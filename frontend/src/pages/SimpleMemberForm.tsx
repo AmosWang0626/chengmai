@@ -11,7 +11,8 @@ interface SimpleMemberFormProps {
 
 export default function SimpleMemberForm({ user }: SimpleMemberFormProps) {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const idParam = useParams().id;
+  const id = idParam ? Number(idParam) : undefined;
   const isEdit = !!id;
   const { members, generationChars, addMember, updateMember, getGenerationChar } = useFamilyMembers(user?.id);
 
@@ -50,7 +51,7 @@ export default function SimpleMemberForm({ user }: SimpleMemberFormProps) {
           gender: member.gender || 'male',
           generation: member.generation || maxGeneration,
           generation_char: member.generation_char || '',
-          parent_id: member.parent_id || '',
+          parent_id: member.parent_id != null ? String(member.parent_id) : '',
           spouse_name: member.spouse_name || '',
           sibling_rank: member.sibling_rank || 1
         });
@@ -69,7 +70,7 @@ export default function SimpleMemberForm({ user }: SimpleMemberFormProps) {
         gender: formData.gender || null,
         generation: formData.generation,
         generation_char: getGenerationChar(formData.generation),
-        parent_id: formData.parent_id || null,
+        parent_id: formData.parent_id ? Number(formData.parent_id) : null,
         spouse_name: formData.spouse_name.trim() || null,
         sibling_rank: formData.sibling_rank
       };

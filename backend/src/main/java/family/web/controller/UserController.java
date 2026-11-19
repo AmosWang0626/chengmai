@@ -1,8 +1,10 @@
 package family.web.controller;
 
+import family.service.ApiException;
 import family.service.UserService;
 import family.util.Json;
 import io.javalin.config.RoutesConfig;
+import io.javalin.http.Context;
 
 import java.util.Map;
 
@@ -26,11 +28,20 @@ public class UserController {
         });
 
         routes.put("/api/users/{id}/role", ctx ->
-                ctx.json(service.updateRole(ctx.pathParam("id"), str(Json.toMap(ctx.body()).get("role")))));
+                ctx.json(service.updateRole(idParam(ctx), str(Json.toMap(ctx.body()).get("role")))));
 
         routes.delete("/api/users/{id}", ctx -> {
-            service.delete(ctx.pathParam("id"), user(ctx));
+            service.delete(idParam(ctx), user(ctx));
             ctx.json(Map.of("ok", true));
         });
+    }
+
+    /** 路径参数转 long；非数字按“不存在”处理。 */
+    private static long idParam(Context ctx) {
+        try {
+            return Long.parseLong(ctx.pathParam("id"));
+        } catch (NumberFormatException e) {
+            throw new ApiException(404, "账号不存在");
+        }
     }
 }
