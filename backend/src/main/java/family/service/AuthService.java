@@ -62,10 +62,7 @@ public class AuthService {
         if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
             throw new ApiException(400, "请输入账号和密码");
         }
-        java.util.Optional<User> found = users.findByUsername(username);
-        System.out.println("[DEBUG] login user=[" + username + "] pwd=[" + password + "] pwdLen=" + (password == null ? -1 : password.length()) + " found=" + found.isPresent()
-                + (found.isPresent() ? " hash=[" + found.get().passwordHash() + "] hashLen=" + (found.get().passwordHash() == null ? -1 : found.get().passwordHash().length()) + " checkpw=" + BCrypt.checkpw(password, found.get().passwordHash()) : ""));
-        User user = found
+        User user = users.findByUsername(username)
                 .filter(u -> BCrypt.checkpw(password, u.passwordHash()))
                 .orElseThrow(() -> new ApiException(401, "账号或密码错误"));
         return new LoginResult(signToken(user), UserView.from(user));

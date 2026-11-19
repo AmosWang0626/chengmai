@@ -21,7 +21,6 @@ public class AuthController {
         // POST /api/auth/login —— 唯一无需 token 的接口
         routes.post("/api/auth/login", ctx -> {
             Map<String, Object> body = Json.toMap(ctx.body());
-            System.out.println("[DEBUG] raw body=" + ctx.body() + " | parsed=" + body);
             ctx.json(auth.login(str(body.get("username")), str(body.get("password"))));
         });
 
