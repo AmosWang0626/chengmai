@@ -9,6 +9,7 @@ import family.repository.GenerationCharRepository;
 import family.repository.MemberRepository;
 import family.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -40,7 +41,8 @@ class MemberServiceTest {
     }
 
     @Test
-    void 创建自动填充字辈与排行() {
+    @DisplayName("创建自动填充字辈与排行")
+    void createAutoFillsGenerationCharAndRanks() {
         FamilyMember parent = service.create(admin, body("name", "父", "gender", "male", "generation", 25));
         assertEquals("问", parent.generationChar());
 
@@ -59,46 +61,53 @@ class MemberServiceTest {
     }
 
     @Test
-    void 显式排行不被覆盖() {
+    @DisplayName("显式排行不被覆盖")
+    void explicitRanksAreNotOverridden() {
         FamilyMember m = service.create(admin, body("name", "子", "gender", "male", "generation", 26, "sibling_rank", 5, "family_rank", 9));
         assertEquals(5, m.siblingRank());
         assertEquals(9, m.familyRank());
     }
 
     @Test
-    void 空字符串转null() {
+    @DisplayName("空字符串转 null")
+    void emptyStringNormalizedToNull() {
         FamilyMember m = service.create(admin, body("name", "子", "spouse_name", ""));
         assertNull(m.spouseName());
     }
 
     @Test
-    void 姓名为空拒绝() {
+    @DisplayName("姓名为空拒绝")
+    void blankNameRejected() {
         ApiException e = assertThrows(ApiException.class, () -> service.create(admin, body("name", "  ")));
         assertEquals(400, e.status());
     }
 
     @Test
-    void 父节点不存在拒绝() {
+    @DisplayName("父节点不存在拒绝")
+    void nonexistentParentRejected() {
         ApiException e = assertThrows(ApiException.class,
                 () -> service.create(admin, body("name", "子", "parent_id", "no-such-id")));
         assertEquals(400, e.status());
     }
 
     @Test
-    void 不能自设父节点() {
+    @DisplayName("不能自设父节点")
+    void cannotSetSelfAsParent() {
         FamilyMember m = service.create(admin, body("name", "子"));
         ApiException e = assertThrows(ApiException.class, () -> service.update(m.id(), body("parent_id", m.id())));
         assertEquals(400, e.status());
     }
 
     @Test
-    void 更新不存在的成员404() {
+    @DisplayName("更新不存在的成员 404")
+    void updateNonexistentMemberReturns404() {
         ApiException e = assertThrows(ApiException.class, () -> service.update("nope", body("name", "x")));
         assertEquals(404, e.status());
     }
 
     @Test
-    void 更新时未传排行则重新计算() {
+    @DisplayName("更新时未传排行则重新计算")
+    void ranksRecalculatedWhenOmittedOnUpdate() {
         FamilyMember parent = service.create(admin, body("name", "父", "generation", 25));
         FamilyMember m = service.create(admin, body("name", "子", "gender", "male", "generation", 26, "parent_id", parent.id(), "sibling_rank", 7));
         FamilyMember updated = service.update(m.id(), body("name", "子改名", "parent_id", parent.id(), "gender", "male"));
@@ -108,7 +117,8 @@ class MemberServiceTest {
     }
 
     @Test
-    void 删除后子女归属置空() {
+    @DisplayName("删除后子女归属置空")
+    void childrenParentClearedAfterDeletion() {
         FamilyMember parent = service.create(admin, body("name", "父", "generation", 25));
         FamilyMember child = service.create(admin, body("name", "子", "generation", 26, "parent_id", parent.id()));
         service.delete(parent.id());

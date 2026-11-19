@@ -10,6 +10,7 @@ import family.repository.GalleryRepository;
 import family.repository.UserRepository;
 import family.service.GalleryService.UploadFile;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -51,7 +52,8 @@ class GalleryServiceTest {
     }
 
     @Test
-    void 上传落盘并进入待审核() throws Exception {
+    @DisplayName("上传落盘并进入待审核")
+    void uploadPersistsFileAndStartsPending() throws Exception {
         GalleryImage img = service.upload(admin, png("a.png"), null, "标题", null, "[\"地契\"]");
         assertEquals(GalleryStatus.PENDING, img.status());
         assertEquals(List.of("地契"), img.tags());
@@ -62,7 +64,8 @@ class GalleryServiceTest {
     }
 
     @Test
-    void 非图片与超大文件拒绝() {
+    @DisplayName("非图片与超大文件拒绝")
+    void nonImageAndOversizedFileRejected() {
         UploadFile txt = new UploadFile("x.txt", "text/plain", PNG);
         assertEquals(400, assertThrows(ApiException.class, () -> service.upload(admin, txt, null, null, null, null)).status());
         UploadFile big = new UploadFile("big.png", "image/png", new byte[21 * 1024 * 1024]);
@@ -71,7 +74,8 @@ class GalleryServiceTest {
     }
 
     @Test
-    void 审核通过记录时间与审核人() {
+    @DisplayName("审核通过记录时间与审核人")
+    void approvalRecordsTimestampAndReviewer() {
         GalleryImage img = service.upload(viewer, png("a.png"), null, null, null, null);
         GalleryImage approved = service.review(img.id(), "approved", admin);
         assertEquals(GalleryStatus.APPROVED, approved.status());
@@ -81,7 +85,8 @@ class GalleryServiceTest {
     }
 
     @Test
-    void 可见性按角色区分() {
+    @DisplayName("可见性按角色区分")
+    void visibilityDependsOnRole() {
         GalleryImage pending = service.upload(viewer, png("a.png"), null, null, null, null);
         assertEquals(1, service.list(admin).size(), "管理员看全部");
         assertEquals(1, service.list(viewer).size(), "上传者看自己的待审核图");
@@ -93,7 +98,8 @@ class GalleryServiceTest {
     }
 
     @Test
-    void 更新元信息() {
+    @DisplayName("更新元信息")
+    void updateMetadata() {
         GalleryImage img = service.upload(admin, png("a.png"), null, "旧", null, null);
         GalleryImage updated = service.updateMeta(img.id(), Map.of("title", "新", "tags", List.of("坟园")));
         assertEquals("新", updated.title());
@@ -101,7 +107,8 @@ class GalleryServiceTest {
     }
 
     @Test
-    void 删除同时移除文件() {
+    @DisplayName("删除同时移除文件")
+    void deleteAlsoRemovesFiles() {
         GalleryImage img = service.upload(admin, png("a.png"), png("t.png"), null, null, null);
         String name = img.url().substring(img.url().lastIndexOf('/') + 1);
         String thumbName = img.thumbnailUrl().substring(img.thumbnailUrl().lastIndexOf('/') + 1);

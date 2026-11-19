@@ -5,6 +5,7 @@ import family.db.Schema;
 import family.model.GenerationChar;
 import family.repository.GenerationCharRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -23,7 +24,8 @@ class GenerationCharServiceTest {
     }
 
     @Test
-    void 创建与重复世代409() {
+    @DisplayName("创建与重复世代 409")
+    void createAndDuplicateGenerationReturns409() {
         GenerationChar c = service.create(27, "中", false);
         assertEquals("中", c.charValue());
         assertFalse(c.hidden());
@@ -32,19 +34,22 @@ class GenerationCharServiceTest {
     }
 
     @Test
-    void 非法世代400() {
+    @DisplayName("非法世代 400")
+    void invalidGenerationReturns400() {
         assertEquals(400, assertThrows(ApiException.class, () -> service.create(0, "x", false)).status());
         assertEquals(400, assertThrows(ApiException.class, () -> service.create("abc", "x", false)).status());
         assertEquals(400, assertThrows(ApiException.class, () -> service.create(27, " ", false)).status());
     }
 
     @Test
-    void 字符串数字可接受() {
+    @DisplayName("字符串数字可接受")
+    void numericStringAccepted() {
         assertEquals(28, service.create("28", "华", false).generation());
     }
 
     @Test
-    void 部分更新保留未传字段() {
+    @DisplayName("部分更新保留未传字段")
+    void partialUpdateKeepsOmittedFields() {
         GenerationChar c = service.create(27, "中", false);
         GenerationChar updated = service.update(c.id(), Map.of("hidden", true));
         assertTrue(updated.hidden());
@@ -53,14 +58,16 @@ class GenerationCharServiceTest {
     }
 
     @Test
-    void 更新撞其他世代409() {
+    @DisplayName("更新撞其他世代 409")
+    void updateConflictingGenerationReturns409() {
         GenerationChar a = service.create(27, "中", false);
         service.create(28, "华", false);
         assertEquals(409, assertThrows(ApiException.class, () -> service.update(a.id(), Map.of("generation", 28))).status());
     }
 
     @Test
-    void 删除与404() {
+    @DisplayName("删除与 404")
+    void deleteAndMissingReturns404() {
         GenerationChar c = service.create(27, "中", false);
         service.delete(c.id());
         assertTrue(service.list().isEmpty());
