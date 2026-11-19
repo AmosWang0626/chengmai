@@ -52,6 +52,7 @@ build_backend() {
 }
 
 build_frontend() {
+  [ -d frontend/node_modules ] || (cd frontend && npm install)
   log "构建前端 dist…"
   (cd frontend && npm run build)
   ok "前端构建完成：frontend/dist"

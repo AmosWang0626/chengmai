@@ -15,8 +15,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const emailWithDomain = email.includes('@') ? email : `${email}@family.local`;
-      await api.login(emailWithDomain, password);
+      await api.login(email, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
     } finally {

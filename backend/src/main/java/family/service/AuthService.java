@@ -57,7 +57,7 @@ public class AuthService {
         }
     }
 
-    /** 校验账号密码，成功则签发 7 天有效的 JWT。 */
+    /** 校验账号密码，成功则签发 7 天有效的 JWT。账号为裸用户名，精确匹配。 */
     public LoginResult login(String username, String password) {
         if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
             throw new ApiException(400, "请输入账号和密码");

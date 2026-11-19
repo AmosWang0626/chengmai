@@ -130,13 +130,13 @@ chengmai/
 在**仓库根目录**执行（数据与静态目录默认相对根目录解析）：
 
 ```bash
-# 构建（含 37 项单元测试）
+# 构建（含 36 项单元测试）
 mvn -f backend/pom.xml package
 
 # 运行（默认端口 8080，数据目录 ./data，静态目录 ./frontend/dist）
 java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 
-# 可选：灌入完全虚构的演示数据（仅空库；账号 admin / demo1234）
+# 可选：灌入完全虚构的演示数据（仅空库；账号 admin / demo123）
 sqlite3 data/family.db < data/seed-demo.sql
 ```
 
@@ -174,7 +174,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 ### 默认账号与安全提醒
 
 仓库仅含**完全虚构**的演示种子 `data/seed-demo.sql`（四代李氏 12 人）：灌入后账号为
-`admin / demo1234`（管理员）、`viewer / demo1234`（访客）。**部署到任何非本机环境前请立即在「账号管理」改密**；
+`admin / demo123`（管理员）、`viewer / demo123`（访客）。**部署到任何非本机环境前请立即在「账号管理」改密**；
 真实家谱数据请自行录入，切勿提交 / 推送真实数据、照片或密钥（详见 [SECURITY.md](SECURITY.md)）。
 `.jwt-secret` 为签名密钥，权限 0600，切勿入库 / 上传 / 分享。
 
@@ -237,7 +237,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
-| POST | `/api/auth/login` | 公开 | 登录，返回 `{token, user}`；用户名无 `@` 时自动补 `@family.local` |
+| POST | `/api/auth/login` | 公开 | 登录，返回 `{token, user}`；账号为裸用户名，精确匹配 |
 | GET | `/api/auth/me` | 登录 | 恢复会话 |
 | PUT | `/api/auth/password` | 登录 | 修改本人密码 |
 | GET | `/api/members` | 登录 | 全量成员 |
@@ -294,7 +294,7 @@ mvn -f backend/pom.xml test
 cd frontend && npm run typecheck
 # API 冒烟（登录 + 列表）
 curl -s -X POST localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"demo1234"}'
+  -d '{"username":"admin","password":"demo123"}'
 curl -s localhost:8080/api/members -H "Authorization: Bearer <token>" | head -c 200
 ```
 
@@ -318,7 +318,7 @@ curl -s localhost:8080/api/members -H "Authorization: Bearer <token>" | head -c 
 - **代码与数据彻底分离**：仓库只含代码、文档与完全虚构的演示种子；真实家谱（`data/family.db`、
   `uploads/`、`.jwt-secret`）一律被 `.gitignore` 忽略，仅放行 `data/README.md` 与 `data/seed-demo.sql`。
 - 克隆后体验：`./start.sh` 自动建表 → `sqlite3 data/family.db < data/seed-demo.sql` 灌入虚构李氏四代 12 人 →
-  `admin / demo1234` 登录；真实数据自行录入，**永不入库**。
+  `admin / demo123` 登录；真实数据自行录入，**永不入库**。
 - 安全设计（本地化存储 / 密钥自动生成 0600 / bcrypt / JWT / 角色矩阵 / 上传白名单 / 列白名单防注入）见 [SECURITY.md](SECURITY.md)。
 - 无 git 历史包袱：本项目以干净起点开源，不存在历史提交中的隐私残留。
 

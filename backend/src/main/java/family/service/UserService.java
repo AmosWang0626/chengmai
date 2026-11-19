@@ -22,7 +22,7 @@ public class UserService {
         return users.findAllNewestFirst().stream().map(UserView::from).toList();
     }
 
-    /** 创建账号：无 @ 的账号自动补 @family.local 后缀；缺省角色 viewer。 */
+    /** 创建账号：账号原样存储（裸用户名）；缺省角色 viewer。 */
     public UserView create(String username, String password, String roleWire) {
         String name = username == null ? "" : username.trim();
         if (name.length() < 4) {
@@ -35,11 +35,10 @@ public class UserService {
         if (role == null) {
             throw new ApiException(400, "无效的角色");
         }
-        String normalized = name.contains("@") ? name : name + "@family.local";
-        if (users.findByUsername(normalized).isPresent()) {
+        if (users.findByUsername(name).isPresent()) {
             throw new ApiException(409, "账号已存在");
         }
-        User user = new User(UUID.randomUUID().toString(), normalized,
+        User user = new User(UUID.randomUUID().toString(), name,
                 BCrypt.hashpw(password, BCrypt.gensalt(10)), null, role, null);
         users.insert(user);
         return UserView.from(users.findById(user.id()).orElseThrow());

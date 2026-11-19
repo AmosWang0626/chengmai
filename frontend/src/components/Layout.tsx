@@ -184,7 +184,7 @@ const Layout: React.FC<LayoutProps> = ({ user, children, title }) => {
                   {(user?.email || '?').slice(0, 1).toUpperCase()}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-700 truncate">{(user?.email || '').replace('@family.local', '')}</p>
+                  <p className="text-xs text-slate-700 truncate">{user?.email || ''}</p>
                   <p className="text-[10px] text-slate-400">{roleLabel[user?.role || ''] || user?.role}</p>
                 </div>
                 <button onClick={handleLogout} className="ui-icon-btn" title="退出登录">

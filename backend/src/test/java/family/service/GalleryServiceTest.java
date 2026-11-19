@@ -32,8 +32,8 @@ class GalleryServiceTest {
     private GalleryService service;
     private GalleryRepository repo;
     private UserRepository users;
-    private final User admin = new User("a1", "admin@family.local", "x", null, Role.ADMIN, null);
-    private final User viewer = new User("v1", "viewer@family.local", "x", null, Role.VIEWER, null);
+    private final User admin = new User("a1", "admin", "x", null, Role.ADMIN, null);
+    private final User viewer = new User("v1", "viewer", "x", null, Role.VIEWER, null);
 
     @BeforeEach
     void setup() {
@@ -85,7 +85,7 @@ class GalleryServiceTest {
         GalleryImage pending = service.upload(viewer, png("a.png"), null, null, null, null);
         assertEquals(1, service.list(admin).size(), "管理员看全部");
         assertEquals(1, service.list(viewer).size(), "上传者看自己的待审核图");
-        User other = new User("v2", "other@family.local", "x", null, Role.VIEWER, null);
+        User other = new User("v2", "other", "x", null, Role.VIEWER, null);
         users.insert(other);
         assertEquals(0, service.list(other).size(), "其他人看不到待审核图");
         service.review(pending.id(), "approved", admin);

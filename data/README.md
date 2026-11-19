@@ -19,7 +19,7 @@
 
 # 2) 可选：灌入虚构演示数据（仅空库；四代李氏 12 人 + 演示账号）
 sqlite3 data/family.db < data/seed-demo.sql
-#    账号：admin / demo1234（管理员）、viewer / demo1234（访客）
+#    账号：admin / demo123（管理员）、viewer / demo123（访客）
 #    体验后请立即在「账号管理」改密
 ```
 

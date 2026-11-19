@@ -44,7 +44,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
       const users = await api.getUsers();
       const formattedAccounts = (users || []).map(u => ({
         id: u.id,
-        email: (u.username || '').replace('@family.local', ''),
+        email: u.username || '',
         created_at: u.created_at || '',
         role: (u.role === 'admin' ? 'admin' : 'viewer') as UserRole,
       }));
@@ -541,7 +541,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
                         type="text"
-                        value={editingAccount.email.replace('@family.local', '')}
+                        value={editingAccount.email}
                         disabled
                         className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-500"
                       />

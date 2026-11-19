@@ -1,14 +1,14 @@
 -- ============================================================================
 -- 演示种子数据（完全虚构，仅用于开源仓库快速体验）
 -- 用法：仅对空库执行  sqlite3 data/family.db < data/seed-demo.sql
--- 账号：admin / demo1234（管理员）、viewer / demo1234（访客）——体验后请立即改密
+-- 账号：admin / demo123（管理员）、viewer / demo123（访客）——体验后请立即改密
 -- 真实家谱数据请自行录入或导入，切勿将真实数据提交到版本库
 -- ============================================================================
 
--- 账号（bcrypt 哈希对应密码 demo1234）
+-- 账号（bcrypt 哈希对应密码 demo123）
 INSERT INTO users (id, username, password_hash, full_name, role) VALUES
-  ('demo-u1', 'admin',  '$2a$10$5Wjye/bKVp0jdYou8PsN9e7M2MoEZXEqJFfd2/0PVY.SmddawF21e', '演示管理员', 'admin'),
-  ('demo-u2', 'viewer', '$2a$10$5Wjye/bKVp0jdYou8PsN9e7M2MoEZXEqJFfd2/0PVY.SmddawF21e', '演示访客',   'viewer');
+  ('demo-u1', 'admin',  '$2a$10$nWn8NGDCq0AOGoe8WDgFW.URiqmwKYV4HnsHXeqsqUHKQnSsCTBAS', '演示管理员', 'admin'),
+  ('demo-u2', 'viewer', '$2a$10$nWn8NGDCq0AOGoe8WDgFW.URiqmwKYV4HnsHXeqsqUHKQnSsCTBAS', '演示访客',   'viewer');
 
 -- 字辈（四代）
 INSERT INTO generation_chars (generation, char, hidden) VALUES

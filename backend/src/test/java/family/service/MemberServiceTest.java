@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** 成员服务测试：字辈自动填充、排行计算、部分更新与校验（内存库隔离）。 */
 class MemberServiceTest {
     private MemberService service;
-    private final User admin = new User("u1", "admin@family.local", "x", null, Role.ADMIN, null);
+    private final User admin = new User("u1", "admin", "x", null, Role.ADMIN, null);
 
     @BeforeEach
     void setup() {
