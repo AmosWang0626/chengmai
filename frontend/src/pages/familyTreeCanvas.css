@@ -1,0 +1,142 @@
+/* 家谱画布：夫妻双卡 + 世系连线的无限画布；chrome 用朱砂/鎏金/宣纸主题，性别色保留语义 */
+
+.tc-root {
+  position: relative; display: flex; flex-direction: column; overflow: hidden;
+  height: calc(100vh - 158px); min-height: 440px;
+  border: 1px solid #d8d4ca; border-radius: 12px;
+  background: linear-gradient(135deg, #faf8f2 0%, #f6f3eb 50%, #fbf7f0 100%);
+  color: #1d1c17;
+}
+
+/* ── 工具栏 ── */
+.tc-bar {
+  height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 12px;
+  padding: 0 12px; background: rgba(255, 253, 248, .88); backdrop-filter: blur(8px);
+  border-bottom: 1px solid #eae7df; z-index: 20;
+}
+.tc-stats { font-size: 12px; color: #77736a; white-space: nowrap; }
+.tc-search { position: relative; flex: 0 1 260px; margin-left: auto; }
+.tc-search input {
+  width: 100%; padding: 6px 12px 6px 28px; font-size: 13px;
+  border: 1px solid #d8d4ca; border-radius: 8px; outline: none; background: #fffdf8;
+}
+.tc-search input:focus { border-color: #d2543c; box-shadow: 0 0 0 3px rgba(185, 58, 38, .14); }
+.tc-search::before { content: "⌕"; position: absolute; left: 9px; top: 50%; transform: translateY(-52%); color: #98948a; font-size: 15px; }
+.tc-hitcount { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #b93a26; }
+.tc-ctl { display: flex; align-items: center; gap: 4px; }
+.tc-ctl button {
+  border: 1px solid #d8d4ca; background: #fffdf8; border-radius: 8px; cursor: pointer;
+  padding: 5px 10px; font-size: 13px; color: #46433b; transition: background .15s, border-color .15s;
+  white-space: nowrap;
+}
+.tc-ctl button:hover { background: #f1eee6; border-color: #eba493; }
+.tc-zoom { font-size: 12px; color: #77736a; min-width: 42px; text-align: center; }
+
+/* ── 画布 ── */
+.tc-viewport { flex: 1; position: relative; overflow: hidden; cursor: grab; touch-action: none; }
+.tc-viewport.dragging { cursor: grabbing; }
+.tc-world { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.tc-world.anim { transition: transform .4s cubic-bezier(.22, .61, .36, 1); }
+.tc-lines { position: absolute; top: 0; left: 0; overflow: visible; }
+.tc-cards { position: absolute; top: 0; left: 0; }
+
+/* ── 折叠按钮 ── */
+.tc-fold {
+  position: absolute; width: 22px; height: 22px; border-radius: 50%;
+  background: #fffdf8; border: 2px solid #e07a62; color: #9a2e1e;
+  font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; z-index: 5;
+  transition: background .15s;
+}
+.tc-fold:hover { background: #fae4de; }
+.tc-fold.closed { font-size: 9px; width: auto; min-width: 22px; padding: 0 5px; border-radius: 11px; background: #fae4de; }
+
+/* ── 提示 ── */
+.tc-hint {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  font-size: 11.5px; color: #77736a; background: rgba(255, 253, 248, .85);
+  padding: 4px 14px; border-radius: 999px; pointer-events: none; white-space: nowrap;
+}
+
+/* ── 详情面板 ── */
+.tc-panel {
+  position: absolute; top: 60px; right: 12px; bottom: 12px; width: 300px; z-index: 30;
+  background: #fffdf8; border-radius: 14px; box-shadow: 0 12px 40px rgba(29, 28, 23, .18);
+  border: 1px solid #d8d4ca; display: flex; flex-direction: column; overflow: hidden;
+}
+.tc-panel .head { padding: 14px; border-bottom: 1px solid #f1eee6; display: flex; align-items: center; gap: 10px; }
+.tc-panel .body { flex: 1; overflow-y: auto; padding: 10px 14px; }
+.tc-row { display: flex; padding: 6px 0; border-bottom: 1px dashed #f1eee6; font-size: 13px; }
+.tc-row .k { width: 76px; flex-shrink: 0; color: #98948a; }
+.tc-row .v { color: #46433b; word-break: break-all; }
+.tc-panel .foot { padding: 10px 14px; border-top: 1px solid #f1eee6; display: flex; gap: 8px; }
+
+@media (max-width: 640px) {
+  .tc-bar { flex-wrap: wrap; height: auto; padding: 8px 10px; gap: 8px; }
+  .tc-search { flex: 1 1 100%; margin-left: 0; order: -1; }
+  .tc-ctl { margin-left: auto; }
+  .tc-stats { display: none; }
+  .tc-panel { width: calc(100% - 24px); }
+  .tc-hint { display: none; }
+  .tc-bar2 input[type="range"] { width: 64px; }
+}
+
+/* ── 第二控制行：滑杆/开关/换根 ── */
+.tc-bar2 {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  padding: 6px 12px; background: rgba(255, 253, 248, .72);
+  border-bottom: 1px solid #eae7df; font-size: 12px; color: #5d594f; z-index: 19;
+}
+.tc-bar2 label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.tc-bar2 input[type="range"] { accent-color: #b93a26; width: 90px; }
+.tc-bar2 input[type="checkbox"] { accent-color: #b93a26; width: 14px; height: 14px; }
+.tc-bar2 .val { min-width: 24px; text-align: right; color: #77736a; font-variant-numeric: tabular-nums; }
+.tc-rootchip {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border: 1px solid #d8d4ca; border-radius: 999px; background: #fffdf8;
+}
+.tc-rootchip button { border: none; background: #fae4de; color: #9a2e1e; border-radius: 999px; padding: 1px 8px; cursor: pointer; font-size: 11px; }
+.tc-rootchip.hintchip { color: #98948a; border-style: dashed; }
+
+/* ── 扇形谱图 ── */
+.fan-sector { cursor: pointer; transition: filter .15s; }
+.fan-sector:hover { filter: brightness(.955); }
+.fan-label { pointer-events: none; font-family: "Songti SC", "STSong", "Noto Serif SC", serif; font-weight: 600; }
+
+/* ── 谱页吊线：竖排右起 ── */
+.sc-root { background: linear-gradient(180deg, #fbf9f3 0%, #f6f2e9 100%); }
+.sc-col {
+  position: absolute; cursor: pointer; border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 6px;
+  transition: background .15s, box-shadow .15s;
+}
+.sc-col:hover { background: rgba(185, 58, 38, .07); }
+.sc-col.sc-frame {
+  background: rgba(255, 253, 248, .78); border: 1px solid #d8d4ca;
+  box-shadow: 0 1px 3px rgba(29, 28, 23, .08);
+}
+.sc-col.sc-frame:hover { border-color: #eba493; }
+.sc-col.selected { box-shadow: 0 0 0 2px #b93a26; background: rgba(185, 58, 38, .08); }
+.sc-col.hit { box-shadow: 0 0 0 2px #c9972c; }
+.sc-texts { writing-mode: vertical-rl; display: flex; gap: 5px; letter-spacing: 2px; max-height: 150px; overflow: hidden; }
+.sc-texts > span { flex-shrink: 0; }
+.sc-sp .sc-texts { max-height: 144px; }
+.sc-name { font-family: "Songti SC", "STSong", "Noto Serif SC", serif; font-weight: 700; color: #2e2c26; }
+.sc-sub { font-size: 10px; color: #98948a; letter-spacing: 1px; }
+.sc-sp { background: rgba(255, 253, 248, .6); border: 1px dashed #d8d4ca; }
+.sc-sp-tag { font-size: 9px; color: #98948a; border: 1px solid #d8d4ca; border-radius: 4px; padding: 0 3px; }
+.sc-fold { left: 50%; transform: translateX(-50%); top: auto; bottom: -11px; }
+/* 节点折叠簇：整支折 / 单代折 / 整支展 */
+.sc-foldset {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: -11px;
+  display: flex; align-items: center; gap: 3px; z-index: 6;
+}
+.sc-foldset .tc-fold { position: static; transform: none; left: auto; bottom: auto; }
+.sc-mini {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid #d8d4ca; background: #fffdf8; color: #77736a;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.sc-mini:hover { border-color: #e07a62; color: #9a2e1e; background: #fae4de; }
+.sc-mini.on { background: #fae4de; border-color: #e07a62; color: #9a2e1e; }
