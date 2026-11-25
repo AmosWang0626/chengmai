@@ -28,7 +28,7 @@ fi
 
 echo "[备份] 字辈导出 → $DATA/generation-chars.sql"
 {
-  echo "-- 字辈配置导出（backup.sh 生成于 $STAMP，源 $DB）"
+  echo "-- 字辈配置导出（backup.sh 生成于 ${STAMP}，源 ${DB}）"
   echo "-- 回放方式：sqlite3 <库文件> < data/generation-chars.sql（整表替换）"
   echo "DELETE FROM generation_chars;"
   sqlite3 "$DB" "SELECT 'INSERT INTO generation_chars (id, generation, char, hidden, created_at) VALUES (' || id || ', ' || generation || ', ''' || replace(char, '''', '''''') || ''', ' || hidden || ', ''' || created_at || ''');' FROM generation_chars ORDER BY generation;"
