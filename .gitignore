@@ -55,6 +55,7 @@ htmlcov/
 
 # Java / Kotlin
 target/
+dependency-reduced-pom.xml
 *.class
 *.jar
 *.war
