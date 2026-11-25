@@ -9,7 +9,6 @@
 | `family.db-wal` / `-shm` | WAL 运行时日志；冷备份请先停服务，或三文件一并拷贝 | ✗ |
 | `.jwt-secret` | JWT HS256 密钥（0600）；缺失时后端自动生成 | ✗ |
 | `uploads/gallery/` | 相册原图与 `thumb_` 缩略图；删除图片记录时同步删除文件 | ✗ |
-| `generation-chars.sql` | 字辈表导出（`backup.sh` 刷新；DELETE+INSERT 可回放整表恢复） | ✗ |
 | `README.md` / `seed-demo.sql` | 说明与**完全虚构**的演示种子 | ✓ |
 
 ## 初始化（克隆仓库后）
@@ -30,8 +29,9 @@ sqlite3 data/family.db < data/seed-demo.sql
 
 ```bash
 ./backup.sh                          # 在线一致备份（无需停服）→ backups/family-data-<时间戳>/
-./backup.sh /path/to/root            # 指定备份根目录；同时刷新 data/generation-chars.sql
-# 产出：family.db 快照 + uploads/ + generation-chars.sql
+./backup.sh /path/to/root            # 指定备份根目录
+# 产出：family.db 快照 + uploads/ + family-data.sql（整库 dump，灌入空库即恢复）
+# 注意：dump 含密码哈希等敏感内容，备份目录切勿公开或入库
 # 冷备份备选：./start.sh stop 后 cp -R data /backup/family-data-$(date +%F)
 # 新机器：DATA_DIR=/path/to/data ./start.sh
 ```
