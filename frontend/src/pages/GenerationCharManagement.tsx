@@ -127,7 +127,10 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
                 {hiddenCount > 0 && <span className="ui-chip bg-slate-200 text-slate-600">{hiddenCount}</span>}
               </button>
               <button
-                onClick={() => setIsAdding(true)}
+                onClick={() => {
+                  setAddForm({ generation: (chars.length ? Math.max(...chars.map(c => c.generation)) : 0) + 1, char: '' });
+                  setIsAdding(true);
+                }}
                 className="flex items-center gap-1 px-2.5 py-1.5 bg-cinnabar-600 text-paper-card rounded-lg hover:bg-cinnabar-700 transition-colors text-xs sm:text-sm"
               >
                 <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
