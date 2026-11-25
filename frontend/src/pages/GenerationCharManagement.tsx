@@ -25,6 +25,7 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
   const [editForm, setEditForm] = useState({ generation: 1, char: '' });
   const [isAdding, setIsAdding] = useState(false);
   const [addForm, setAddForm] = useState({ generation: 1, char: '' });
+  const [error, setError] = useState('');
 
   const fetchChars = async () => {
     try {
@@ -32,7 +33,7 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
       const data = await api.getGenerationChars();
       setChars(data || []);
     } catch (err) {
-      console.error('获取字辈数据失败:', err);
+      setError(err instanceof Error ? err.message : '获取字辈数据失败');
     } finally {
       setLoading(false);
     }
@@ -43,21 +44,23 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
   }, []);
 
   const handleToggleHidden = async (id: number, currentHidden: boolean) => {
+    setError('');
     try {
       await api.updateGenerationChar(id, { hidden: !currentHidden });
       setChars(prev => prev.map(c => c.id === id ? { ...c, hidden: !currentHidden } : c));
     } catch (err) {
-      console.error('切换隐藏状态失败:', err);
+      setError(err instanceof Error ? err.message : '切换隐藏状态失败');
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('确定要删除这个字辈吗？')) return;
+    setError('');
     try {
       await api.deleteGenerationChar(id);
       setChars(prev => prev.filter(c => c.id !== id));
     } catch (err) {
-      console.error('删除字辈失败:', err);
+      setError(err instanceof Error ? err.message : '删除字辈失败');
     }
   };
 
@@ -67,25 +70,33 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
   };
 
   const handleSaveEdit = async () => {
-    if (!editForm.char.trim()) return;
+    if (!editForm.char.trim()) {
+      setError('字辈不能为空');
+      return;
+    }
+    setError('');
     try {
       await api.updateGenerationChar(editingId!, { generation: editForm.generation, char: editForm.char.trim() });
       setChars(prev => prev.map(c => c.id === editingId ? { ...c, generation: editForm.generation, char: editForm.char.trim() } : c));
       setEditingId(null);
     } catch (err) {
-      console.error('保存编辑失败:', err);
+      setError(err instanceof Error ? err.message : '保存编辑失败');
     }
   };
 
   const handleAdd = async () => {
-    if (!addForm.char.trim()) return;
+    if (!addForm.char.trim()) {
+      setError('字辈不能为空');
+      return;
+    }
+    setError('');
     try {
       const data = await api.createGenerationChar({ generation: addForm.generation, char: addForm.char.trim(), hidden: false });
       setChars(prev => [...prev, data].sort((a, b) => a.generation - b.generation));
       setIsAdding(false);
       setAddForm({ generation: 1, char: '' });
     } catch (err) {
-      console.error('添加字辈失败:', err);
+      setError(err instanceof Error ? err.message : '添加字辈失败');
     }
   };
 
@@ -124,6 +135,12 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
               </button>
             </div>
           </div>
+
+          {error && (
+            <div className="mb-4 px-3 py-2 bg-cinnabar-50 text-cinnabar-700 rounded-lg text-xs border border-cinnabar-200">
+              {error}
+            </div>
+          )}
 
           {loading ? (
             <div className="text-center py-12 text-cinnabar-600">加载中...</div>

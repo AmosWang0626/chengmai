@@ -39,6 +39,7 @@ export default function MemberForm({ user }: MemberFormProps) {
   });
   const [saving, setSaving] = useState(false);
   const [showMoreInfo, setShowMoreInfo] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (isEdit && id && members.length > 0) {
@@ -74,6 +75,7 @@ export default function MemberForm({ user }: MemberFormProps) {
     if (!formData.name.trim()) return;
 
     setSaving(true);
+    setError('');
     try {
       const data = {
         ...formData,
@@ -98,7 +100,7 @@ export default function MemberForm({ user }: MemberFormProps) {
       }
       navigate('/members');
     } catch (err) {
-      console.error('保存失败:', err);
+      setError(err instanceof Error ? err.message : '保存失败');
     } finally {
       setSaving(false);
     }
@@ -396,6 +398,12 @@ export default function MemberForm({ user }: MemberFormProps) {
                 />
               </div>
             </div>
+
+            {error && (
+              <div className="mt-4 px-3 py-2 bg-cinnabar-50 text-cinnabar-700 rounded-lg text-xs border border-cinnabar-200">
+                {error}
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
               <button

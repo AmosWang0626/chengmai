@@ -30,6 +30,7 @@ export default function SimpleMemberForm({ user }: SimpleMemberFormProps) {
     sibling_rank: 1
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!isEdit && generationChars.length > 0) {
@@ -64,6 +65,7 @@ export default function SimpleMemberForm({ user }: SimpleMemberFormProps) {
     if (!formData.name.trim()) return;
 
     setSaving(true);
+    setError('');
     try {
       const data = {
         name: formData.name,
@@ -82,7 +84,7 @@ export default function SimpleMemberForm({ user }: SimpleMemberFormProps) {
       }
       navigate('/members');
     } catch (err) {
-      console.error('保存失败:', err);
+      setError(err instanceof Error ? err.message : '保存失败');
     } finally {
       setSaving(false);
     }
@@ -219,6 +221,12 @@ export default function SimpleMemberForm({ user }: SimpleMemberFormProps) {
               />
               <p className="text-xs text-slate-400 mt-1">如果配偶不在列表中，请先添加</p>
             </div>
+
+            {error && (
+              <div className="mt-4 px-3 py-2 bg-cinnabar-50 text-cinnabar-700 rounded-lg text-xs border border-cinnabar-200">
+                {error}
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               <button

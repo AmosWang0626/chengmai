@@ -35,6 +35,7 @@ export default function BatchChildrenModal({ user, parentIds, isOpen, onClose, o
   const [rows, setRows] = useState<ChildRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [error, setError] = useState('');
 
   React.useEffect(() => {
     if (isOpen && selectedParents.length > 0) {
@@ -90,6 +91,7 @@ export default function BatchChildrenModal({ user, parentIds, isOpen, onClose, o
 
     setSaving(true);
     setSavedCount(0);
+    setError('');
 
     try {
       for (const row of validRows) {
@@ -110,7 +112,7 @@ export default function BatchChildrenModal({ user, parentIds, isOpen, onClose, o
       onSuccess();
       onClose();
     } catch (err) {
-      console.error('批量保存失败:', err);
+      setError(err instanceof Error ? err.message : '批量保存失败');
     } finally {
       setSaving(false);
     }
@@ -279,6 +281,12 @@ export default function BatchChildrenModal({ user, parentIds, isOpen, onClose, o
             </div>
           </form>
         </div>
+
+        {error && (
+          <div className="mx-4 mt-2 px-3 py-2 bg-cinnabar-50 text-cinnabar-700 rounded-lg text-xs border border-cinnabar-200">
+            {error}
+          </div>
+        )}
 
         <div className="p-4 border-t border-slate-100 flex gap-3">
           <button

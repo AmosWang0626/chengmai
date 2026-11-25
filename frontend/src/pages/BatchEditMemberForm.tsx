@@ -28,6 +28,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
   const { members, generationChars, updateMember, getGenerationChar, refresh } = useFamilyMembers(user?.id);
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState<string>('');
   const [generationFilter, setGenerationFilter] = useState<string>('');
@@ -99,6 +100,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
 
     setSaving(true);
     setSavedCount(0);
+    setError('');
 
     try {
       for (const member of selectedMembers) {
@@ -118,7 +120,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
       await refresh();
       setTimeout(() => navigate('/members'), 500);
     } catch (err) {
-      console.error('批量编辑失败:', err);
+      setError(err instanceof Error ? err.message : '批量编辑失败');
     } finally {
       setSaving(false);
     }
@@ -351,6 +353,12 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
 
             {filteredMembers.length === 0 && (
               <div className="text-center py-12 text-slate-500">暂无数据</div>
+            )}
+
+            {error && (
+              <div className="mt-4 px-3 py-2 bg-cinnabar-50 text-cinnabar-700 rounded-lg text-xs border border-cinnabar-200">
+                {error}
+              </div>
             )}
 
             <div className="flex gap-3 pt-6 border-t border-slate-100 mt-6">
