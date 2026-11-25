@@ -41,7 +41,7 @@
 | --- | --- | --- | --- |
 | `frontend/` | 全部 UI 与交互，不含任何服务端逻辑 | `frontend/dist/` 静态文件 | ✅ CDN / nginx / 任意静态托管 |
 | `backend/` | REST API、鉴权、上传落盘、可选同进程托管前端 | `backend/target/chengmai-backend.jar` | ✅ 任意有 JDK 17+ 的机器 |
-| `data/` | 持久化状态：数据库、图片、密钥 | 目录整体 | ✅ 拷贝目录即迁移 / 备份 |
+| `data/` | 持久化状态：数据库、图片、密钥、字辈导出 | 目录整体 | ✅ `./backup.sh` 在线备份 / 拷贝目录迁移 |
 
 两种部署形态：
 
@@ -90,7 +90,7 @@ chengmai/
 │       └── test/java/family/  #    37 项 JUnit（内存 SQLite）
 └── data/                      # ③ 数据块（git 忽略，含隐私）
     ├── family.db              #    SQLite 主库（WAL 模式）
-    ├── family.db-wal / -shm   #    WAL 运行时日志（备份时需一并拷贝或先停服务）
+    ├── family.db-wal / -shm   #    WAL 运行时日志（./backup.sh 在线备份无需停服）
     ├── .jwt-secret            #    JWT 签名密钥（0600）
     └── uploads/gallery/       #    相册原图与缩略图落盘
 ```
@@ -206,9 +206,10 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 | 文件 | 说明 |
 | --- | --- |
 | `family.db` | SQLite 主库，WAL 模式 + 外键开启；首次启动按 `schema.sql` 自动建表 |
-| `family.db-wal` / `-shm` | WAL 运行时文件；**冷备份请先停服务**，或三文件一并拷贝 |
+| `family.db-wal` / `-shm` | WAL 运行时文件；`./backup.sh` 在线备份无需停服，冷拷贝则三文件一并 |
 | `.jwt-secret` | HS256 密钥文件；不存在时自动生成并 chmod 0600 |
 | `uploads/gallery/` | 相册原图 + `thumb_` 缩略图；删除图片记录时同步删文件 |
+| `generation-chars.sql` | 字辈表导出（`backup.sh` 刷新，DELETE+INSERT 可回放整表恢复） |
 
 ### 表结构概览
 
@@ -221,7 +222,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 
 ### 备份 / 迁移 / 互通
 
-- **备份**：停服务后整目录拷贝 `data/`；
+- **备份**：`./backup.sh [备份根目录]` 在线一致备份（sqlite3 `.backup`，无需停服），产出库快照 + `uploads/` + 字辈导出；默认落在 `backups/`（已忽略）；
 - **迁移**：把 `data/` 放到新机器并用 `DATA_DIR` 指向它即可，schema 自动补齐；
 - **与 Node 版不互通**：姊妹项目 `../family-manage`（Node/Express 后端）为 TEXT 主键与旧账号契约；本版已改数字自增主键（10000 起）并内置账号，**库结构不再兼容，不可共用 `data/`**。
 

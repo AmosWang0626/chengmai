@@ -114,3 +114,6 @@ run/
 data/*
 !data/README.md
 !data/seed-demo.sql
+
+# 备份产出（backup.sh）
+backups/
