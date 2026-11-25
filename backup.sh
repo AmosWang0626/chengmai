@@ -2,7 +2,7 @@
 # 承脉 ChengMai · 数据块备份脚本
 # 用法：./backup.sh [备份根目录]   默认 ./backups
 # 服务运行中也可执行：sqlite3 .backup 保证库快照一致性，无需停服。
-# 产出：<根目录>/family-data-<时间戳>/{family.db, uploads/, family-data.sql}
+# 产出：<根目录>/family-data-<时间戳>/{family.db, uploads/, family-data.sql} 及同名 .zip
 # family-data.sql 为整库 dump（schema + 全表数据），可直接灌入空库恢复。
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -29,5 +29,9 @@ fi
 echo "[备份] 全量 SQL 导出 → $DEST/family-data.sql"
 sqlite3 "$DB" .dump > "$DEST/family-data.sql"
 
-echo "[备份] 完成：$DEST"
-du -sh "$DEST" 2>/dev/null || true
+echo "[备份] 压缩 → $DEST.zip"
+(cd "$(dirname "$DEST")" && zip -r -q "$(basename "$DEST").zip" "$(basename "$DEST")" -x "*.DS_Store")
+unzip -tq "$DEST.zip" >/dev/null
+
+echo "[备份] 完成：$DEST （及同名 .zip）"
+du -sh "$DEST" "$DEST.zip" 2>/dev/null || true

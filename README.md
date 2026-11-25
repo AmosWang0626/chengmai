@@ -221,7 +221,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 
 ### 备份 / 迁移 / 互通
 
-- **备份**：`./backup.sh [备份根目录]` 在线一致备份（sqlite3 `.backup`，无需停服），产出库快照 + `uploads/` + 全量 SQL dump（`family-data.sql`，schema + 全表数据，可灌空库恢复）；默认落在 `backups/`（已忽略）；
+- **备份**：`./backup.sh [备份根目录]` 在线一致备份（sqlite3 `.backup`，无需停服），产出库快照 + `uploads/` + 全量 SQL dump（`family-data.sql`，schema + 全表数据，可灌空库恢复），并打同名 `.zip`（完整性校验过）；默认落在 `backups/`（已忽略）；
 - **迁移**：把 `data/` 放到新机器并用 `DATA_DIR` 指向它即可，schema 自动补齐；
 - **与 Node 版不互通**：姊妹项目 `../family-manage`（Node/Express 后端）为 TEXT 主键与旧账号契约；本版已改数字自增主键（10000 起）并内置账号，**库结构不再兼容，不可共用 `data/`**。
 

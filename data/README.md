@@ -30,7 +30,7 @@ sqlite3 data/family.db < data/seed-demo.sql
 ```bash
 ./backup.sh                          # 在线一致备份（无需停服）→ backups/family-data-<时间戳>/
 ./backup.sh /path/to/root            # 指定备份根目录
-# 产出：family.db 快照 + uploads/ + family-data.sql（整库 dump，灌入空库即恢复）
+# 产出：family.db 快照 + uploads/ + family-data.sql（整库 dump，灌入空库即恢复）+ 同名 .zip
 # 注意：dump 含密码哈希等敏感内容，备份目录切勿公开或入库
 # 冷备份备选：./start.sh stop 后 cp -R data /backup/family-data-$(date +%F)
 # 新机器：DATA_DIR=/path/to/data ./start.sh
