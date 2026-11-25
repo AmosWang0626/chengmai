@@ -13,7 +13,7 @@ interface AccountManagementProps {
 
 interface UserAccount {
   id: number;
-  email: string;
+  username: string;
   created_at: string;
   role: UserRole;
 }
@@ -44,7 +44,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
       const users = await api.getUsers();
       const formattedAccounts = (users || []).map(u => ({
         id: u.id,
-        email: u.username || '',
+        username: u.username || '',
         created_at: u.created_at || '',
         role: (u.role === 'admin' ? 'admin' : 'viewer') as UserRole,
       }));
@@ -261,7 +261,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-slate-900">{account.email}</span>
+                      <span className="font-medium text-slate-900">{account.username}</span>
                       {account.id === user?.id && (
                         <span className="px-1.5 py-px bg-cinnabar-50 text-cinnabar-700 rounded text-[11px]">
                           我
@@ -331,7 +331,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
                           <div className={`ui-avatar w-10 h-10 ${getRoleColor(account.role)}`}>
                             <Mail className="w-5 h-5" />
                           </div>
-                          <span className="font-medium text-slate-900">{account.email}</span>
+                          <span className="font-medium text-slate-900">{account.username}</span>
                           {account.id === user?.id && (
                             <span className="px-1.5 py-px bg-cinnabar-50 text-cinnabar-700 rounded text-[11px]">
                               当前账号
@@ -541,7 +541,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
                         type="text"
-                        value={editingAccount.email}
+                        value={editingAccount.username}
                         disabled
                         className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-500"
                       />

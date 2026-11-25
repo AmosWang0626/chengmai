@@ -41,7 +41,7 @@ class AuthServiceTest {
         AuthService.LoginResult result = service.login("tester", "123456");
         assertNotNull(result.token());
         assertEquals(uid, result.user().id());
-        assertEquals("tester", result.user().email());
+        assertEquals("tester", result.user().username());
     }
 
     @Test

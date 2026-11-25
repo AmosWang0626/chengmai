@@ -181,10 +181,10 @@ const Layout: React.FC<LayoutProps> = ({ user, children, title }) => {
             {showLabels ? (
               <div className="flex items-center gap-2 px-1 py-1">
                 <span className="w-7 h-7 rounded-md bg-gilt-100 text-gilt-700 font-display font-bold text-sm flex items-center justify-center flex-shrink-0">
-                  {(user?.email || '?').slice(0, 1).toUpperCase()}
+                  {(user?.username || '?').slice(0, 1).toUpperCase()}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-700 truncate">{user?.email || ''}</p>
+                  <p className="text-xs text-slate-700 truncate">{user?.username || ''}</p>
                   <p className="text-[10px] text-slate-400">{roleLabel[user?.role || ''] || user?.role}</p>
                 </div>
                 <button onClick={handleLogout} className="ui-icon-btn" title="退出登录">
@@ -194,7 +194,7 @@ const Layout: React.FC<LayoutProps> = ({ user, children, title }) => {
             ) : (
               <div className="flex flex-col items-center gap-1">
                 <span className="w-7 h-7 rounded-md bg-gilt-100 text-gilt-700 font-display font-bold text-sm flex items-center justify-center">
-                  {(user?.email || '?').slice(0, 1).toUpperCase()}
+                  {(user?.username || '?').slice(0, 1).toUpperCase()}
                 </span>
                 <button onClick={handleLogout} className="ui-icon-btn" title="退出登录">
                   <LogOut className="w-4 h-4" />

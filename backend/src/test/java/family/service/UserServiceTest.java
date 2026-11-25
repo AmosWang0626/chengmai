@@ -34,7 +34,7 @@ class UserServiceTest {
     void createStoresUsernameAsIsWithDefaultViewerRole() {
         UserView v = service.create("testuser", "123456", null);
         assertEquals("testuser", v.username());
-        assertEquals("testuser", v.email());
+        assertEquals("testuser", v.username());
         assertEquals(Role.VIEWER, v.role());
         assertTrue(v.id() >= 10000, "自增 id 从 10000 起");
     }
