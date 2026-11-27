@@ -13,7 +13,12 @@ import java.util.Map;
 import static family.web.controller.AuthController.str;
 import static family.web.controller.AuthController.user;
 
-/** 相册接口：列表 / 上传(multipart) / 审核 / 改元信息 / 删除。 */
+/**
+ * 相册接口：列表 / 上传(multipart) / 审核 / 改元信息 / 删除。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class GalleryController {
     private final GalleryService service;
 

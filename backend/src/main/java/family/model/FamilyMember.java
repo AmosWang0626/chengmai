@@ -3,7 +3,12 @@ package family.model;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
-/** 家族成员实体，字段与 family_members 表一一对应，JSON 蛇形命名。 */
+/**
+ * 家族成员实体，字段与 family_members 表一一对应，JSON 蛇形命名。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record FamilyMember(
         Long id,

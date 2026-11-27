@@ -3,7 +3,12 @@ package family.db;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/** 建表初始化：读取 classpath 下的 schema.sql 并逐条执行（均为 IF NOT EXISTS，幂等）。 */
+/**
+ * 建表初始化：读取 classpath 下的 schema.sql 并逐条执行（均为 IF NOT EXISTS，幂等）。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class Schema {
     public static void init(Database db) {
         try (InputStream in = Schema.class.getResourceAsStream("/schema.sql")) {

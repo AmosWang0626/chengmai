@@ -10,7 +10,12 @@ import java.util.Map;
 
 import static family.web.controller.AuthController.user;
 
-/** 家族成员接口：列表 / 新增 / 更新 / 删除。写操作的管理员校验由 AuthInterceptor 统一完成。 */
+/**
+ * 家族成员接口：列表 / 新增 / 更新 / 删除。写操作的管理员校验由 AuthInterceptor 统一完成。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class MemberController {
     private final MemberService service;
 

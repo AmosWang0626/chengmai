@@ -13,7 +13,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** 成员服务：CRUD + 字辈自动填充 + 排行自动计算。入参用 Map 以保留“字段是否出现”的部分更新语义。 */
+/**
+ * 成员服务：CRUD + 字辈自动填充 + 排行自动计算。入参用 Map 以保留“字段是否出现”的部分更新语义。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class MemberService {
     /** 允许从请求体拾取的字段（与前端表单一致）。 */
     private static final List<String> FIELDS = List.of(

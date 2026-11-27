@@ -6,6 +6,12 @@ import family.model.AuditEntry;
 
 import java.util.List;
 
+/**
+ * 审计日志表 DAO：记录写操作并查询最近日志。
+ *
+ * @author dorian
+ * @date 2026-11-28
+ */
 public class AuditRepository {
     private static final RowMapper<AuditEntry> MAPPER = rs -> new AuditEntry(
             rs.getLong("id"), RowMapper.longOrNull(rs, "user_id"), rs.getString("action"),

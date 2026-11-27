@@ -5,7 +5,12 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Locale;
 
-/** 相册图片审核状态：JSON 中以小写传输（pending/approved/rejected/hidden）。 */
+/**
+ * 相册图片审核状态：JSON 中以小写传输（pending/approved/rejected/hidden）。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public enum GalleryStatus {
     PENDING, APPROVED, REJECTED, HIDDEN;
 

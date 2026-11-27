@@ -4,7 +4,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
-/** 字辈配置：每个世代对应一个字辈字符，hidden 控制前端是否展示。 */
+/**
+ * 字辈配置：每个世代对应一个字辈字符，hidden 控制前端是否展示。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record GenerationChar(
         Integer id,

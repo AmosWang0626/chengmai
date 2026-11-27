@@ -5,7 +5,12 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Locale;
 
-/** 用户角色：JSON 中以小写传输（admin/editor/viewer），与前端约定一致。 */
+/**
+ * 用户角色：JSON 中以小写传输（admin/editor/viewer），与前端约定一致。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public enum Role {
     ADMIN, EDITOR, VIEWER;
 

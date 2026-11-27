@@ -22,7 +22,12 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 相册服务测试：上传落盘、审核、可见性、删除时清理文件（临时目录隔离）。 */
+/**
+ * 相册服务测试：上传落盘、审核、可见性、删除时清理文件（临时目录隔离）。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 class GalleryServiceTest {
     private static final byte[] PNG = Base64.getDecoder().decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");

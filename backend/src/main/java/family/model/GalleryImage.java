@@ -5,7 +5,12 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 import java.util.List;
 
-/** 相册图片实体：url/thumbnailUrl 为相对路径（/uploads/gallery/xxx），前端经 assetUrl 补全。 */
+/**
+ * 相册图片实体：url/thumbnailUrl 为相对路径（/uploads/gallery/xxx），前端经 assetUrl 补全。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record GalleryImage(
         Long id,

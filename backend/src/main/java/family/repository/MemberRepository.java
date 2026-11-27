@@ -10,7 +10,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** 家族成员表 DAO：只负责 SQL，不含业务校验。 */
+/**
+ * 家族成员表 DAO：只负责 SQL，不含业务校验。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class MemberRepository {
     private static final RowMapper<FamilyMember> MAPPER = rs -> new FamilyMember(
             rs.getLong("id"),

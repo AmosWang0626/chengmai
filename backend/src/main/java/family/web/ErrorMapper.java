@@ -5,7 +5,12 @@ import io.javalin.config.RoutesConfig;
 
 import java.util.Map;
 
-/** 全局异常映射：业务异常按携带的状态码返回 {error}；未知异常兜底 500。 */
+/**
+ * 全局异常映射：业务异常按携带的状态码返回 {error}；未知异常兜底 500。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class ErrorMapper {
     public void register(RoutesConfig routes) {
         routes.exception(ApiException.class, (e, ctx) ->

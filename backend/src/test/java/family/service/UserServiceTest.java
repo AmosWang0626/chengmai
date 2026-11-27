@@ -12,7 +12,12 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 账号服务测试：账号原样存储、重复账号、最后管理员保护、自删禁止。 */
+/**
+ * 账号服务测试：账号原样存储、重复账号、最后管理员保护、自删禁止。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 class UserServiceTest {
     private UserService service;
     private UserRepository users;

@@ -14,7 +14,12 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 认证服务测试：bcryptjs 旧哈希兼容、JWT 往返与失效、密钥持久化、改密。 */
+/**
+ * 认证服务测试：bcryptjs 旧哈希兼容、JWT 往返与失效、密钥持久化、改密。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 class AuthServiceTest {
     // bcryptjs 2.4.3 生成的 "123456" 哈希，验证跨实现兼容
     private static final String BCRYPTJS_HASH = "$2a$10$ulyBgdJp521VV.2EQWDCG.QI.Wi1T8.6U4B9k1TLDnP0BTpAJuGce";

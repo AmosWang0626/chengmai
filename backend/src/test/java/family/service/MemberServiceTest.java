@@ -18,7 +18,12 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 成员服务测试：字辈自动填充、排行计算、部分更新与校验（内存库隔离）。 */
+/**
+ * 成员服务测试：字辈自动填充、排行计算、部分更新与校验（内存库隔离）。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 class MemberServiceTest {
     private MemberService service;
     private User admin;

@@ -8,7 +8,12 @@ import io.javalin.config.RoutesConfig;
 import io.javalin.http.Context;
 import io.javalin.http.HandlerType;
 
-/** 统一鉴权拦截器：校验 token 并把当前用户挂到 ctx.attribute("user")，再按路由矩阵判定管理员权限。 */
+/**
+ * 统一鉴权拦截器：校验 token 并把当前用户挂到 ctx.attribute("user")，再按路由矩阵判定管理员权限。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class AuthInterceptor {
     private final AuthService auth;
 

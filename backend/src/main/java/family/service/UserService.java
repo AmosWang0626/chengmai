@@ -9,7 +9,12 @@ import org.mindrot.jbcrypt.BCrypt;
 
 import java.util.List;
 
-/** 账号管理服务：创建、改角色、删除，含“最后管理员”与“自删”保护。 */
+/**
+ * 账号管理服务：创建、改角色、删除，含“最后管理员”与“自删”保护。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class UserService {
     private final UserRepository users;
     private final Database db;

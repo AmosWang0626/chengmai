@@ -5,7 +5,12 @@ import io.javalin.config.RoutesConfig;
 import java.util.List;
 import java.util.Set;
 
-/** CORS：仅允许显式配置的来源，默认保留本地开发端口。 */
+/**
+ * CORS：仅允许显式配置的来源，默认保留本地开发端口。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class CorsHandler {
     private final Set<String> allowedOrigins;
 

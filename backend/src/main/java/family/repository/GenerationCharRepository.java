@@ -7,7 +7,12 @@ import family.model.GenerationChar;
 import java.util.List;
 import java.util.Optional;
 
-/** 字辈配置表 DAO：hidden 在库中为 0/1 整数，映射为布尔。 */
+/**
+ * 字辈配置表 DAO：hidden 在库中为 0/1 整数，映射为布尔。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class GenerationCharRepository {
     private static final RowMapper<GenerationChar> MAPPER = rs -> new GenerationChar(
             rs.getInt("id"),

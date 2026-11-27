@@ -10,7 +10,12 @@ import java.util.Map;
 
 import static family.web.controller.AuthController.str;
 
-/** 字辈配置接口：列表 / 新增 / 更新 / 删除。 */
+/**
+ * 字辈配置接口：列表 / 新增 / 更新 / 删除。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class GenerationCharController {
     private final GenerationCharService service;
 

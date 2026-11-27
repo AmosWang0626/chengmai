@@ -12,7 +12,12 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 字辈服务测试：世代唯一性、部分更新、非法输入。 */
+/**
+ * 字辈服务测试：世代唯一性、部分更新、非法输入。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 class GenerationCharServiceTest {
     private GenerationCharService service;
 

@@ -8,7 +8,12 @@ import io.javalin.http.Context;
 
 import java.util.Map;
 
-/** 认证接口：登录 / 当前用户 / 修改密码。薄控制器，只做解析与转发。 */
+/**
+ * 认证接口：登录 / 当前用户 / 修改密码。薄控制器，只做解析与转发。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class AuthController {
     private final AuthService auth;
 

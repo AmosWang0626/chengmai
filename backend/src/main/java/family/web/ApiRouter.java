@@ -8,7 +8,12 @@ import family.web.controller.MemberController;
 import family.web.controller.UserController;
 import io.javalin.config.RoutesConfig;
 
-/** 路由汇总：把五个控制器的路由一次性注册到 Javalin。 */
+/**
+ * 路由汇总：把五个控制器的路由一次性注册到 Javalin。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class ApiRouter {
     private final AuthController auth;
     private final MemberController members;

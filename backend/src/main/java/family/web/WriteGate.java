@@ -9,6 +9,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
+/**
+ * 写入门禁处理器：为写请求登记标记，并在备份期间拒绝写入。
+ *
+ * @author dorian
+ * @date 2026-11-28
+ */
 public class WriteGate {
     private static final String MARKER = "writerMarker";
     private final Path dataDir;

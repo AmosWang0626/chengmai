@@ -4,7 +4,12 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
-/** 时间工具：统一生成与 Node 版 new Date().toISOString() 一致的毫秒级 UTC 字符串。 */
+/**
+ * 时间工具：统一生成与 Node 版 new Date().toISOString() 一致的毫秒级 UTC 字符串。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class Time {
     private static final DateTimeFormatter ISO_MILLIS =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);

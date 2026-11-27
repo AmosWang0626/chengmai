@@ -9,7 +9,12 @@ import family.util.Json;
 import java.util.List;
 import java.util.Optional;
 
-/** 相册图片表 DAO：tags 在库中为 JSON 字符串，映射时转为 List。 */
+/**
+ * 相册图片表 DAO：tags 在库中为 JSON 字符串，映射时转为 List。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class GalleryRepository {
     private static final RowMapper<GalleryImage> MAPPER = rs -> new GalleryImage(
             rs.getLong("id"),

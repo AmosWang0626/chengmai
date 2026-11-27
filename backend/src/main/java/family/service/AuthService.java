@@ -20,12 +20,22 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HexFormat;
 
-/** 认证服务：登录、token 校验、改密。jbcrypt 与 Node 版 bcryptjs 哈希互通，JWT 密钥文件两版共用。 */
+/**
+ * 认证服务：登录、token 校验、改密。jbcrypt 与 Node 版 bcryptjs 哈希互通，JWT 密钥文件两版共用。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class AuthService {
     private static final String DEFAULT_PASSWORD_HASH =
             "$2a$10$nWn8NGDCq0AOGoe8WDgFW.URiqmwKYV4HnsHXeqsqUHKQnSsCTBAS";
 
-    /** 登录结果：token + 不含密码哈希的用户视图。 */
+    /**
+     * 登录结果：token + 不含密码哈希的用户视图。
+     *
+     * @author dorian
+     * @date 2026-11-19
+     */
     public record LoginResult(String token, UserView user) {
     }
 

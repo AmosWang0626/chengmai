@@ -9,7 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** JSON 请求解析测试：语法错误与根类型错误均返回 400。 */
+/**
+ * JSON 请求解析测试：语法错误与根类型错误均返回 400。
+ *
+ * @author dorian
+ * @date 2026-11-28
+ */
 class JsonTest {
     @Test
     @DisplayName("toMap 拒绝错误 JSON")

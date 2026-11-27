@@ -5,7 +5,12 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 
-/** 应用配置：端口与数据目录取自环境变量，上传限制为固定常量。 */
+/**
+ * 应用配置：端口与数据目录取自环境变量，上传限制为固定常量。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public record AppConfig(int port, Path dataDir, long maxFileSizeMb, long maxRequestSizeMb, List<String> corsOrigins) {
 
     /** 从环境变量构建：PORT、DATA_DIR、CORS_ORIGINS；默认只允许本地开发前端跨域。 */

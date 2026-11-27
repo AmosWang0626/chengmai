@@ -12,7 +12,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-/** SQLite 访问封装：单连接 + synchronized 串行化（轻量场景足够），开启 WAL 与外键。 */
+/**
+ * SQLite 访问封装：单连接 + synchronized 串行化（轻量场景足够），开启 WAL 与外键。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class Database {
     private final Connection conn;
 

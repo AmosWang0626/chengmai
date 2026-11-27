@@ -10,6 +10,12 @@ import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
+/**
+ * 请求日志处理器：生成请求标识、记录耗时并写入成功写操作的审计日志。
+ *
+ * @author dorian
+ * @date 2026-11-28
+ */
 public class RequestLogger {
     private static final Logger log = LoggerFactory.getLogger(RequestLogger.class);
     private final AuditRepository audit;

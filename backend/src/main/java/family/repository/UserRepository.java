@@ -8,7 +8,12 @@ import family.model.User;
 import java.util.List;
 import java.util.Optional;
 
-/** 用户表 DAO：只负责 SQL，不含业务校验。 */
+/**
+ * 用户表 DAO：只负责 SQL，不含业务校验。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class UserRepository {
     private static final RowMapper<User> MAPPER = rs -> new User(
             rs.getLong("id"),

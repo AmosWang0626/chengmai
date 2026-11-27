@@ -11,7 +11,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** JSON 工具：请求解析严格校验结构，标签解析失败时降级为空列表。 */
+/**
+ * JSON 工具：请求解析严格校验结构，标签解析失败时降级为空列表。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class Json {
     public static final ObjectMapper MAPPER = new ObjectMapper()
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);

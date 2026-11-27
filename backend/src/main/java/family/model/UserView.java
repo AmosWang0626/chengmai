@@ -3,7 +3,12 @@ package family.model;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
-/** 用户对外视图：不含密码哈希。 */
+/**
+ * 用户对外视图：不含密码哈希。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record UserView(
         Long id,

@@ -35,7 +35,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 
-/** 程序入口：手动构造注入装配各层（web → service → repository → db），启动 Javalin。 */
+/**
+ * 程序入口：手动构造注入装配各层（web → service → repository → db），启动 Javalin。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class Main {
     public static void main(String[] args) throws Exception {
         // 配置与数据目录

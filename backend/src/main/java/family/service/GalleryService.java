@@ -17,12 +17,28 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-/** 相册服务：上传落盘、审核、元信息维护、删除（连同物理文件）。 */
+/**
+ * 相册服务：上传落盘、审核、元信息维护、删除（连同物理文件）。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class GalleryService {
-    /** 上传文件的内存表示，与 HTTP 层解耦，便于测试。 */
+    /**
+     * 上传文件的内存表示，与 HTTP 层解耦，便于测试。
+     *
+     * @author dorian
+     * @date 2026-11-19
+     */
     public record UploadFile(String originalName, String contentType, byte[] bytes) {
     }
 
+    /**
+     * 图片文件访问结果：包含磁盘路径与内容类型。
+     *
+     * @author dorian
+     * @date 2026-11-19
+     */
     public record ImageFile(Path path, String contentType) {
     }
 

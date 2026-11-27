@@ -6,7 +6,12 @@ import family.repository.GenerationCharRepository;
 import java.util.List;
 import java.util.Map;
 
-/** 字辈配置服务：每世代唯一，支持部分更新。 */
+/**
+ * 字辈配置服务：每世代唯一，支持部分更新。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class GenerationCharService {
     private final GenerationCharRepository chars;
 

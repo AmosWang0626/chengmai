@@ -11,7 +11,12 @@ import java.util.Map;
 import static family.web.controller.AuthController.str;
 import static family.web.controller.AuthController.user;
 
-/** 账号管理接口：列表 / 创建 / 改角色 / 删除。整组路由均需管理员权限（见 AuthInterceptor）。 */
+/**
+ * 账号管理接口：列表 / 创建 / 改角色 / 删除。整组路由均需管理员权限（见 AuthInterceptor）。
+ *
+ * @author dorian
+ * @date 2026-11-19
+ */
 public class UserController {
     private final UserService service;
 
