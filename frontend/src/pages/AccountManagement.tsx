@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { api } from '../api/client';
 import Layout from '../components/Layout';
+import { InlineNotice } from '../components/Feedback';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, UserPlus, Mail, Shield, AlertCircle, X, CheckCircle, Edit2, Save, UserCog, Lock, Key } from 'lucide-react';
 
@@ -36,11 +37,13 @@ export default function AccountManagement({ user }: AccountManagementProps) {
   const [editLoading, setEditLoading] = useState(false);
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [success, setSuccess] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   const fetchAccounts = async () => {
     try {
+      setLoadError('');
       const users = await api.getUsers();
       const formattedAccounts = (users || []).map(u => ({
         id: u.id,
@@ -50,8 +53,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
       }));
       setAccounts(formattedAccounts);
     } catch (err) {
-      console.error('获取账号失败:', err);
-      setError('获取账号列表失败');
+      setLoadError(err instanceof Error ? err.message : '获取账号列表失败');
     } finally {
       setLoading(false);
     }
@@ -224,12 +226,15 @@ export default function AccountManagement({ user }: AccountManagementProps) {
           </div>
         </div>
 
+        {loadError && <InlineNotice message={loadError} onRetry={() => void fetchAccounts()} />}
+
         <AnimatePresence>
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
+              role="alert"
               className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 flex items-center gap-2"
             >
               <AlertCircle className="w-5 h-5" />
@@ -241,6 +246,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
+              role="status"
               className="p-4 bg-green-50 border border-green-200 rounded-xl text-green-600 flex items-center gap-2"
             >
               <CheckCircle className="w-5 h-5" />

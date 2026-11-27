@@ -1,12 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { User } from '../types';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
 import { useUserRole } from '../hooks/useUserRole';
 import Layout from '../components/Layout';
 import BatchChildrenModal from '../components/BatchChildrenModal';
 import { genderTint } from './tree/shared';
-import { Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, Filter, ArrowUpDown, List, GitBranch, Network } from 'lucide-react';
+import { ConfirmDialog, PageError } from '../components/Feedback';
+import SiblingOrderDialog from '../components/SiblingOrderDialog';
+import { ROUTES, memberEditPath } from '../routes';
+import MemberTreeView from './MemberTreeView';
+import GenerationView from './GenerationView';
 
 interface MemberListProps {
   user: User | null;
@@ -14,8 +19,17 @@ interface MemberListProps {
 
 export default function MemberList({ user }: MemberListProps) {
   const navigate = useNavigate();
-  const { members, generationChars, loading, error, deleteMember, refresh } = useFamilyMembers(user?.id);
-  const { isAdmin } = useUserRole(user?.id);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedView = searchParams.get('view');
+  const view = requestedView === 'tree' || requestedView === 'generations' ? requestedView : 'table';
+  const setView = (next: 'table' | 'tree' | 'generations') => {
+    const params = new URLSearchParams(searchParams);
+    if (next === 'table') params.delete('view');
+    else params.set('view', next);
+    setSearchParams(params, { replace: true });
+  };
+  const { members, generationChars, loading, error, deleteMember, refresh, reorderMembers } = useFamilyMembers(user?.id);
+  const { canEditContent } = useUserRole(user);
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState<string>('');
   const [generationFilter, setGenerationFilter] = useState<string>('');
@@ -27,6 +41,9 @@ export default function MemberList({ user }: MemberListProps) {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isBatchChildrenModalOpen, setIsBatchChildrenModalOpen] = useState(false);
   const [selectedParentIds, setSelectedParentIds] = useState<number[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
 
   const memberChildrenCount = useMemo(() => {
     const countMap: Record<string, number> = {};
@@ -50,7 +67,8 @@ export default function MemberList({ user }: MemberListProps) {
       if (sortField === 'generation') {
         comparison = (a.generation || 0) - (b.generation || 0);
         if (comparison === 0) {
-          comparison = (a.sibling_rank || 0) - (b.sibling_rank || 0);
+          comparison = (a.family_rank || 0) - (b.family_rank || 0)
+            || (a.sibling_rank || 0) - (b.sibling_rank || 0);
         }
       } else if (sortField === 'sibling_rank') {
         comparison = (a.sibling_rank || 0) - (b.sibling_rank || 0);
@@ -69,12 +87,14 @@ export default function MemberList({ user }: MemberListProps) {
     currentPage * itemsPerPage
   );
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这位家人吗？')) return;
+  const handleDelete = async () => {
+    if (deleteTarget === null) return;
+    setActionError('');
     try {
-      await deleteMember(id);
-    } catch {
-      alert('删除失败');
+      await deleteMember(deleteTarget);
+      setDeleteTarget(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : '删除失败');
     }
   };
 
@@ -96,8 +116,31 @@ export default function MemberList({ user }: MemberListProps) {
   const getGenderColor = genderTint;
 
   return (
-    <Layout user={user} title="家人列表">
+    <Layout user={user} title="成员">
       <div className="space-y-3 p-3 sm:p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="ui-seg" role="tablist" aria-label="成员视图">
+            {[
+              { id: 'table' as const, label: '表格', icon: List },
+              { id: 'tree' as const, label: '世系', icon: GitBranch },
+              { id: 'generations' as const, label: '世代', icon: Network },
+            ].map(item => (
+              <button key={item.id} type="button" role="tab" aria-selected={view === item.id} onClick={() => setView(item.id)}
+                className={`ui-seg-item ${view === item.id ? 'active' : ''}`}>
+                <item.icon className="w-3.5 h-3.5" />
+                {item.label}
+              </button>
+            ))}
+          </div>
+          {canEditContent && (
+            <button type="button" onClick={() => navigate(ROUTES.memberNew)} className="ui-btn-outline ml-auto">
+              <Plus className="w-3.5 h-3.5" />
+              添加家人
+            </button>
+          )}
+        </div>
+
+        <div className={view === 'table' ? '' : 'hidden'}>
         {/* 搜索和筛选区 - 移动端优化 */}
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -145,29 +188,30 @@ export default function MemberList({ user }: MemberListProps) {
             </select>
           </div>
           
-          {/* 操作按钮 - 仅管理员可见 */}
-          {isAdmin && (
+          {/* 操作按钮 - 管理员和编辑可用 */}
+          {canEditContent && (
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => navigate('/members/batch-edit')}
+                type="button"
+                onClick={() => setOrderDialogOpen(true)}
+                className="flex min-h-11 items-center justify-center gap-1.5 px-3 py-2 text-sm border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5" />
+                同辈排序
+              </button>
+              <button
+                onClick={() => navigate(`${ROUTES.memberBatch}?action=edit`)}
                 className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm border border-gilt-500 text-gilt-600 rounded-lg hover:bg-gilt-50 transition-colors"
               >
                 <Edit2 className="w-3.5 h-3.5" />
                 批量编辑
               </button>
               <button
-                onClick={() => navigate('/members/batch')}
+                onClick={() => navigate(`${ROUTES.memberBatch}?action=add`)}
                 className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm border border-cinnabar-600 text-cinnabar-600 rounded-lg hover:bg-cinnabar-50 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 批量添加
-              </button>
-              <button
-                onClick={() => navigate('/members/new')}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-cinnabar-600 text-paper-card rounded-lg hover:bg-cinnabar-700 transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                添加家人
               </button>
             </div>
           )}
@@ -176,7 +220,7 @@ export default function MemberList({ user }: MemberListProps) {
         {loading ? (
           <div className="text-center py-12 text-slate-500">加载中...</div>
         ) : error ? (
-          <div className="text-center py-12 text-red-500">{error}</div>
+          <PageError message={error} onRetry={() => void refresh()} />
         ) : (
           <>
             {/* 移动端卡片列表 */}
@@ -213,8 +257,8 @@ export default function MemberList({ user }: MemberListProps) {
                           配偶: {member.spouse_name}
                         </div>
                       )}
-                      {/* 快捷操作 - 仅管理员可见 */}
-                      {isAdmin && (
+                      {/* 快捷操作 - 管理员和编辑可用 */}
+                      {canEditContent && (
                         <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-100">
                           <button
                             onClick={() => openBatchChildrenModal(member.id)}
@@ -223,13 +267,13 @@ export default function MemberList({ user }: MemberListProps) {
                             添加子女
                           </button>
                           <button
-                            onClick={() => navigate(`/members/edit/${member.id}`)}
+                            onClick={() => navigate(memberEditPath(member.id))}
                             className="flex-1 py-2 text-center text-cinnabar-600 hover:bg-cinnabar-50 rounded-lg transition-colors text-sm"
                           >
                             编辑
                           </button>
                           <button
-                            onClick={() => handleDelete(member.id)}
+                            onClick={() => { setActionError(''); setDeleteTarget(member.id); }}
                             className="flex-1 py-2 text-center text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm"
                           >
                             删除
@@ -312,8 +356,8 @@ export default function MemberList({ user }: MemberListProps) {
                         </td>
                         <td className="px-4 py-3 text-slate-600">{member.birth_date || '-'}</td>
                         <td className="px-4 py-3">
-                          {/* 操作按钮 - 仅管理员可见 */}
-                          {isAdmin && (
+                          {/* 操作按钮 - 管理员和编辑可用 */}
+                          {canEditContent && (
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => openBatchChildrenModal(member.id)}
@@ -323,13 +367,13 @@ export default function MemberList({ user }: MemberListProps) {
                                 <Plus className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => navigate(`/members/edit/${member.id}`)}
+                                onClick={() => navigate(memberEditPath(member.id))}
                                 className="p-2 text-slate-500 hover:text-cinnabar-600 hover:bg-cinnabar-50 rounded-lg transition-colors"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleDelete(member.id)}
+                                onClick={() => { setActionError(''); setDeleteTarget(member.id); }}
                                 className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -371,10 +415,13 @@ export default function MemberList({ user }: MemberListProps) {
             )}
           </>
         )}
+        </div>
+        {view === 'tree' && <MemberTreeView user={user} />}
+        {view === 'generations' && <GenerationView user={user} />}
       </div>
 
-      {/* 批量添加子女弹窗 - 仅管理员可用 */}
-      {isAdmin && (
+      {/* 批量添加子女弹窗 - 管理员和编辑可用 */}
+      {canEditContent && (
         <BatchChildrenModal
           user={user}
           parentIds={selectedParentIds}
@@ -383,6 +430,21 @@ export default function MemberList({ user }: MemberListProps) {
           onSuccess={refresh}
         />
       )}
+      <SiblingOrderDialog
+        open={orderDialogOpen}
+        members={members}
+        onClose={() => setOrderDialogOpen(false)}
+        onReorder={reorderMembers}
+      />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="删除家人"
+        message="删除后，其子女将变为根节点。此操作不可撤销，确定继续吗？"
+        confirmText="确认删除"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDelete()}
+      />
+      {actionError && <div className="fixed bottom-4 left-1/2 z-[80] -translate-x-1/2 rounded-lg bg-red-600 px-4 py-3 text-sm text-white shadow-lg" role="alert">{actionError}</div>}
     </Layout>
   );
 }

@@ -52,10 +52,7 @@ module.exports = (env, argv) => {
         '/uploads': 'http://localhost:8080'
       },
       historyApiFallback: {
-        index: '/index.html',
-        rewrites: [
-          { from: /^\/_p\/\d+\//, to: '/index.html' }
-        ]
+        index: '/index.html'
       }
     },
     plugins: [
@@ -64,7 +61,7 @@ module.exports = (env, argv) => {
         inject: 'body'
       }),
       new CopyWebpackPlugin({
-        patterns: [{ from: 'public', to: '.' }]
+        patterns: [{ from: 'public', to: '.', globOptions: { ignore: ['**/prototype-tree.html'] } }]
       })
     ]
   };

@@ -139,6 +139,41 @@ def run_smoke(jar):
             members = expect("member list", request(base, "GET", "/api/members", admin), 200)[2]
             assert not any(member["name"] == "应回滚" for member in members)
 
+            expect("batch update rolls back on failure", request(base, "PUT", "/api/members/batch", admin,
+                body=[{"id": parent["id"], "name": "不应保存"}, {"generation": 2}]), 400)
+            unchanged = next(member for member in expect("members after failed batch",
+                request(base, "GET", "/api/members", admin), 200)[2] if member["id"] == parent["id"])
+            assert unchanged["name"] == "父辈"
+            expect("viewer cannot batch update", request(base, "PUT", "/api/members/batch", viewer,
+                body=[{"id": parent["id"], "name": "访客修改"}]), 403)
+            expect("batch update requires ids", request(base, "PUT", "/api/members/batch", admin,
+                body=[{"name": "缺少 id"}]), 400)
+            expect("batch update succeeds", request(base, "PUT", "/api/members/batch", admin,
+                body=[{"id": parent["id"], "bio": "批量更新"}]), 200)
+
+            sibling_a = expect("create first sibling", request(base, "POST", "/api/members", admin,
+                body={"name": "长子", "parent_id": parent["id"], "generation": 2, "gender": "male"}), 201)[2]
+            sibling_b = expect("create second sibling", request(base, "POST", "/api/members", admin,
+                body={"name": "次女", "parent_id": parent["id"], "generation": 2, "gender": "female"}), 201)[2]
+            group = [member for member in expect("siblings before reorder", request(base, "GET", "/api/members", admin), 200)[2]
+                     if member["parent_id"] == parent["id"]]
+            reordered_ids = list(reversed([member["id"] for member in group]))
+            expect("reorder requires complete group", request(base, "PUT", "/api/members/order", admin,
+                body={"parent_id": parent["id"], "member_ids": reordered_ids[:-1]}), 400)
+            expect("reorder rejects duplicate ids", request(base, "PUT", "/api/members/order", admin,
+                body={"parent_id": parent["id"], "member_ids": [reordered_ids[0]] + reordered_ids}), 400)
+            expect("viewer cannot reorder", request(base, "PUT", "/api/members/order", viewer,
+                body={"parent_id": parent["id"], "member_ids": reordered_ids}), 403)
+            reordered = expect("reorder siblings", request(base, "PUT", "/api/members/order", admin,
+                body={"parent_id": parent["id"], "member_ids": reordered_ids}), 200)[2]
+            assert [member["id"] for member in reordered] == reordered_ids
+            assert [member["family_rank"] for member in reordered] == list(range(1, len(group) + 1))
+            gender_ranks = {}
+            for member in reordered:
+                gender = member["gender"] or "other"
+                gender_ranks[gender] = gender_ranks.get(gender, 0) + 1
+                assert member["sibling_rank"] == gender_ranks[gender]
+
             editor = expect("create editor", request(base, "POST", "/api/users", admin,
                 body={"username": "editor01", "password": "editorpass", "role": "editor"}), 201)[2]
             editor_login = request(base, "POST", "/api/auth/login",

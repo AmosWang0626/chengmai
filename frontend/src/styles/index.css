@@ -166,39 +166,39 @@ body {
 }
 
 /* 看板V2：世代卡双列瀑布流；卡内成员双卡按容器宽度自适应 1/2 列 */
-.v2-gen {
+.generation-gen {
   container-type: inline-size;
 }
-.v2-grid {
+.generation-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
 }
 @container (min-width: 640px) {
-  .v2-grid {
+  .generation-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
 /* 窄卡：配偶卡横排为成员行下方的整行条，保证成员名字可读 */
-.v2-unit {
+.generation-unit {
   container-type: inline-size;
 }
 @container (max-width: 420px) {
-  .v2-unit-row {
+  .generation-unit-row {
     flex-wrap: wrap;
   }
-  .v2-spouse {
+  .generation-spouse {
     width: 100%;
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 4px 8px;
   }
-  .v2-sp-name {
+  .generation-sp-name {
     flex: 1;
     min-width: 0;
   }
-  .v2-sp-sub {
+  .generation-sp-sub {
     max-width: 45%;
   }
 }
@@ -222,5 +222,55 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .rise {
     animation: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .batch-edit-table,
+  .batch-edit-table tbody,
+  .batch-edit-table tr,
+  .batch-edit-table td {
+    display: block;
+    width: 100%;
+  }
+  .batch-edit-table thead {
+    display: none;
+  }
+  .batch-edit-table tbody {
+    border: 0;
+  }
+  .batch-edit-table tr {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fffdf8;
+  }
+  .batch-edit-table td {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border: 0;
+  }
+  .batch-edit-table td::before {
+    content: attr(data-label);
+    flex: 0 0 72px;
+    color: #94a3b8;
+    font-size: 12px;
+  }
+  .batch-edit-table td > :is(input, select, div) {
+    flex: 1;
+    min-width: 0;
+  }
+  .batch-edit-table td:first-child {
+    justify-content: flex-end;
+  }
+  .batch-edit-table td:first-child::before {
+    flex-basis: auto;
+    margin-right: auto;
+  }
+  .batch-edit-table td:first-child button {
+    flex: 0 0 auto;
   }
 }

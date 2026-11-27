@@ -10,15 +10,7 @@ interface AdminRouteProps {
 }
 
 export default function AdminRoute({ user, children, allowEditor = false }: AdminRouteProps) {
-  const { isAdmin, canEditContent, loading } = useUserRole(user?.id);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-paper">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cinnabar-600"></div>
-      </div>
-    );
-  }
+  const { isAdmin, canEditContent } = useUserRole(user);
 
   if (!isAdmin && !(allowEditor && canEditContent)) {
     return <Navigate to="/dashboard" replace />;

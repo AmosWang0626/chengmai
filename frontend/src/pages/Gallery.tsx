@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { User } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,6 +10,7 @@ import ProtectedImage from '../components/ProtectedImage';
 import { useGallery } from '../hooks/useGallery';
 import { useUserRole } from '../hooks/useUserRole';
 import { GalleryImage } from '../types/gallery';
+import { ConfirmDialog, InlineNotice, PageError } from '../components/Feedback';
 
 async function resizeImage(file: File, maxWidth: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -20,14 +21,19 @@ async function resizeImage(file: File, maxWidth: number): Promise<string> {
       canvas.width = maxWidth;
       canvas.height = img.height * scale;
       const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      if (!ctx) {
+        reject(new Error('浏览器不支持图片处理'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
     };
-    img.onerror = reject;
+    img.onerror = () => reject(new Error('图片读取失败'));
     const reader = new FileReader();
     reader.onload = (e) => {
       img.src = e.target?.result as string;
     };
+    reader.onerror = () => reject(new Error('图片读取失败'));
     reader.readAsDataURL(file);
   });
 }
@@ -37,9 +43,10 @@ interface GalleryProps {
 }
 
 export default function Gallery({ user }: GalleryProps) {
-  const { images, loading, error, allTags, uploadImage, updateImageStatus, deleteImage } = useGallery();
-  const { isAdmin } = useUserRole(user?.id);
+  const { images, loading, error, allTags, refresh, uploadImage, updateImageStatus, deleteImage } = useGallery();
+  const { isAdmin } = useUserRole(user);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef('');
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
@@ -56,6 +63,43 @@ export default function Gallery({ user }: GalleryProps) {
     preview: '',
   });
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [busyAction, setBusyAction] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<GalleryImage | null>(null);
+
+  const revokePreview = useCallback(() => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = '';
+  }, []);
+
+  const resetUpload = useCallback(() => {
+    revokePreview();
+    setUploadForm({ title: '', description: '', tags: '', file: null, preview: '' });
+    setUploadError('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [revokePreview]);
+
+  const closeUpload = () => {
+    if (uploading) return;
+    resetUpload();
+    setShowUploadModal(false);
+  };
+
+  useEffect(() => () => revokePreview(), [revokePreview]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setSelectedImage(null);
+      setDeleteTarget(null);
+      if (showUploadModal && !uploading) {
+        resetUpload();
+        setShowUploadModal(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [resetUpload, showUploadModal, uploading]);
 
   const filteredImages = useMemo(() => {
     return images.filter(img => {
@@ -72,11 +116,10 @@ export default function Gallery({ user }: GalleryProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setUploadForm(prev => ({
-        ...prev,
-        file,
-        preview: URL.createObjectURL(file),
-      }));
+      revokePreview();
+      const preview = URL.createObjectURL(file);
+      previewUrlRef.current = preview;
+      setUploadForm(prev => ({ ...prev, file, preview }));
     }
   };
 
@@ -85,6 +128,7 @@ export default function Gallery({ user }: GalleryProps) {
     if (!uploadForm.file || !user) return;
 
     setUploading(true);
+    setUploadError('');
     try {
       const formData = new FormData();
       formData.append('file', uploadForm.file);
@@ -101,13 +145,41 @@ export default function Gallery({ user }: GalleryProps) {
 
       await uploadImage(formData);
 
+      resetUpload();
       setShowUploadModal(false);
-      setUploadForm({ title: '', description: '', tags: '', file: null, preview: '' });
     } catch (err) {
-      console.error('上传失败:', err);
-      alert(err instanceof Error ? err.message : '上传失败');
+      setUploadError(err instanceof Error ? err.message : '上传失败');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleStatus = async (id: number, status: GalleryImage['status']) => {
+    const key = `status-${id}-${status}`;
+    setBusyAction(key);
+    setActionError('');
+    try {
+      await updateImageStatus(id, status);
+      setSelectedImage(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : '审核操作失败');
+    } finally {
+      setBusyAction('');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setBusyAction(`delete-${deleteTarget.id}`);
+    setActionError('');
+    try {
+      await deleteImage(deleteTarget.id);
+      setDeleteTarget(null);
+      setSelectedImage(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : '删除图片失败');
+    } finally {
+      setBusyAction('');
     }
   };
 
@@ -163,6 +235,8 @@ export default function Gallery({ user }: GalleryProps) {
             )}
           </div>
         </div>
+
+        {actionError && <InlineNotice message={actionError} />}
 
         <AnimatePresence>
           {showFilters && (
@@ -230,7 +304,7 @@ export default function Gallery({ user }: GalleryProps) {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cinnabar-600 mx-auto"></div>
           </div>
         ) : error ? (
-          <div className="text-center py-12 text-red-500">{error}</div>
+          <PageError message={error} onRetry={() => void refresh()} />
         ) : filteredImages.length === 0 ? (
           <div className="text-center py-12 text-slate-500 ui-card">
             <ImageIcon className="w-12 h-12 mx-auto mb-3 text-slate-300" />
@@ -284,23 +358,24 @@ export default function Gallery({ user }: GalleryProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-              onClick={() => setShowUploadModal(false)}
+              onClick={closeUpload}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 onClick={(e) => e.stopPropagation()}
+                role="dialog" aria-modal="true" aria-labelledby="gallery-upload-title"
                 className="bg-paper-card rounded-xl shadow-lift w-full max-w-md overflow-hidden"
               >
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <h2 id="gallery-upload-title" className="text-xl font-bold text-slate-800 flex items-center gap-2">
                     <Upload className="w-6 h-6 text-cinnabar-600" />
                     上传图片
                   </h2>
                   <button
-                    onClick={() => setShowUploadModal(false)}
-                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                    aria-label="关闭上传窗口" disabled={uploading} onClick={closeUpload}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -369,10 +444,13 @@ export default function Gallery({ user }: GalleryProps) {
                     />
                   </div>
 
+                  {uploadError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{uploadError}</p>}
+
                   <div className="flex gap-3 pt-4">
                     <button
                       type="button"
-                      onClick={() => setShowUploadModal(false)}
+                      disabled={uploading}
+                      onClick={closeUpload}
                       className="ui-btn-outline flex-1 h-9"
                     >
                       取消
@@ -415,6 +493,7 @@ export default function Gallery({ user }: GalleryProps) {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 onClick={(e) => e.stopPropagation()}
+                role="dialog" aria-modal="true" aria-label="图片详情"
                 className="bg-paper-card rounded-xl shadow-lift w-full max-w-4xl max-h-[90vh] overflow-hidden"
               >
                 <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
@@ -429,7 +508,7 @@ export default function Gallery({ user }: GalleryProps) {
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-bold text-lg text-slate-800">图片详情</h3>
                       <button
-                        onClick={() => setSelectedImage(null)}
+                        aria-label="关闭图片详情" onClick={() => setSelectedImage(null)}
                         className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                       >
                         <X className="w-5 h-5" />
@@ -484,10 +563,7 @@ export default function Gallery({ user }: GalleryProps) {
                         <div className="flex flex-wrap gap-2">
                           {selectedImage.status !== 'approved' && (
                             <button
-                              onClick={() => {
-                                updateImageStatus(selectedImage.id, 'approved');
-                                setSelectedImage(null);
-                              }}
+                              disabled={busyAction !== ''} onClick={() => void handleStatus(selectedImage.id, 'approved')}
                               className="flex items-center gap-1 px-3 py-2 bg-green-600 text-paper-card rounded-lg hover:bg-green-700 transition-colors text-sm"
                             >
                               <CheckCircle className="w-4 h-4" />
@@ -496,10 +572,7 @@ export default function Gallery({ user }: GalleryProps) {
                           )}
                           {selectedImage.status !== 'rejected' && (
                             <button
-                              onClick={() => {
-                                updateImageStatus(selectedImage.id, 'rejected');
-                                setSelectedImage(null);
-                              }}
+                              disabled={busyAction !== ''} onClick={() => void handleStatus(selectedImage.id, 'rejected')}
                               className="flex items-center gap-1 px-3 py-2 bg-red-600 text-paper-card rounded-lg hover:bg-red-700 transition-colors text-sm"
                             >
                               <AlertCircle className="w-4 h-4" />
@@ -508,10 +581,7 @@ export default function Gallery({ user }: GalleryProps) {
                           )}
                           {selectedImage.status !== 'hidden' && (
                             <button
-                              onClick={() => {
-                                updateImageStatus(selectedImage.id, 'hidden');
-                                setSelectedImage(null);
-                              }}
+                              disabled={busyAction !== ''} onClick={() => void handleStatus(selectedImage.id, 'hidden')}
                               className="flex items-center gap-1 px-3 py-2 bg-gray-600 text-paper-card rounded-lg hover:bg-gray-700 transition-colors text-sm"
                             >
                               <EyeOff className="w-4 h-4" />
@@ -519,12 +589,7 @@ export default function Gallery({ user }: GalleryProps) {
                             </button>
                           )}
                           <button
-                            onClick={() => {
-                              if (confirm('确定要删除这张图片吗？')) {
-                                deleteImage(selectedImage.id);
-                                setSelectedImage(null);
-                              }
-                            }}
+                            disabled={busyAction !== ''} onClick={() => setDeleteTarget(selectedImage)}
                             className="flex items-center gap-1 px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors text-sm"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -539,6 +604,9 @@ export default function Gallery({ user }: GalleryProps) {
             </motion.div>
           )}
         </AnimatePresence>
+      <ConfirmDialog open={deleteTarget !== null} title="删除图片"
+        message={`确定要删除「${deleteTarget?.title || '未命名图片'}」吗？原图与缩略图都会删除。`}
+        confirmText="删除" onConfirm={() => void handleDelete()} onCancel={() => setDeleteTarget(null)} />
       </div>
     </Layout>
   );

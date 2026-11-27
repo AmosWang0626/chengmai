@@ -4,6 +4,7 @@ import { User } from '../types';
 import { ArrowLeft, Save, Edit3, CheckSquare, Square } from 'lucide-react';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
 import { motion } from 'framer-motion';
+import { ROUTES } from '../routes';
 
 interface BatchEditMemberFormProps {
   user: User | null;
@@ -24,9 +25,8 @@ interface EditableMember {
 
 export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) {
   const navigate = useNavigate();
-  const { members, generationChars, updateMember, getGenerationChar, refresh } = useFamilyMembers(user?.id);
+  const { members, generationChars, updateMembersBatch, getGenerationChar } = useFamilyMembers(user?.id);
   const [saving, setSaving] = useState(false);
-  const [savedCount, setSavedCount] = useState(0);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState<string>('');
@@ -41,7 +41,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
         id: m.id,
         name: m.name,
         gender: m.gender || '',
-        generation: m.generation || 21,
+        generation: m.generation || 1,
         generation_char: m.generation_char || '',
         parent_id: m.parent_id != null ? String(m.parent_id) : '',
         spouse_name: m.spouse_name || '',
@@ -98,26 +98,22 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
     if (selectedMembers.length === 0) return;
 
     setSaving(true);
-    setSavedCount(0);
     setError('');
 
     try {
-      for (const member of selectedMembers) {
-        const data = {
-          name: member.name.trim(),
-          gender: member.gender || null,
-          generation: member.generation,
-          generation_char: getGenerationChar(member.generation),
-          parent_id: member.parent_id ? Number(member.parent_id) : null,
-          spouse_name: member.spouse_name.trim() || null,
-          sibling_rank: member.sibling_rank,
-          family_rank: member.family_rank
-        };
-        await updateMember(member.id, data);
-        setSavedCount(prev => prev + 1);
-      }
-      await refresh();
-      setTimeout(() => navigate('/members'), 500);
+      const payload = selectedMembers.map(member => ({
+        id: member.id,
+        name: member.name.trim(),
+        gender: member.gender || null,
+        generation: member.generation,
+        generation_char: getGenerationChar(member.generation),
+        parent_id: member.parent_id ? Number(member.parent_id) : null,
+        spouse_name: member.spouse_name.trim() || null,
+        sibling_rank: member.sibling_rank,
+        family_rank: member.family_rank,
+      }));
+      await updateMembersBatch(payload);
+      setTimeout(() => navigate(ROUTES.members), 300);
     } catch (err) {
       setError(err instanceof Error ? err.message : '批量编辑失败');
     } finally {
@@ -134,7 +130,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          onClick={() => navigate('/members')}
+          onClick={() => navigate(ROUTES.members)}
           className="flex items-center gap-2 text-slate-600 hover:text-cinnabar-600 transition-colors mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -146,15 +142,15 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
           animate={{ opacity: 1, y: 0 }}
           className="ui-card p-3 sm:p-4"
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
             <h1 className="font-display text-xl font-bold text-slate-900 flex items-center gap-3">
               <div className="w-10 h-10 bg-cinnabar-50 rounded-xl flex items-center justify-center">
                 <Edit3 className="w-5 h-5 text-cinnabar-600" />
               </div>
               批量编辑家人
             </h1>
-            <div className="flex items-center gap-4">
-              <div className="relative">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative w-full sm:w-48">
                 <input
                   type="text"
                   placeholder="搜索姓名"
@@ -171,6 +167,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                 <option value="">全部性别</option>
                 <option value="male">男</option>
                 <option value="female">女</option>
+                <option value="other">其他</option>
               </select>
               <select
                 value={generationFilter}
@@ -198,16 +195,14 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                 已选 {selectedCount} 人
               </span>
               {saving && (
-                <span className="text-sm text-cinnabar-600 font-medium">
-                  已保存 {savedCount}/{selectedCount}
-                </span>
+                <span className="text-sm text-cinnabar-600 font-medium">原子保存中…</span>
               )}
             </div>
           </div>
 
           <form onSubmit={handleSubmit}>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="batch-edit-table w-full">
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-3 py-3 text-left w-12">
@@ -238,7 +233,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                       key={member.id}
                       className={`hover:bg-slate-50 ${member.selected ? 'bg-cinnabar-50/50' : ''}`}
                     >
-                      <td className="px-3 py-3">
+                      <td data-label="选择" className="px-3 py-3">
                         <button
                           type="button"
                           onClick={() => toggleSelect(member.id)}
@@ -251,7 +246,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           )}
                         </button>
                       </td>
-                      <td className="px-3 py-3">
+                      <td data-label="姓名" className="px-3 py-3">
                         <input
                           type="text"
                           value={member.name}
@@ -260,11 +255,12 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           className={`${inputClass} ${!member.selected ? 'bg-slate-100 text-slate-400' : ''}`}
                         />
                       </td>
-                      <td className="px-3 py-3">
+                      <td data-label="性别" className="px-3 py-3">
                         <div className="flex gap-1">
                           {[
                             { value: 'male', label: '男' },
-                            { value: 'female', label: '女' }
+                            { value: 'female', label: '女' },
+                            { value: 'other', label: '其他' }
                           ].map(opt => (
                             <button
                               key={opt.value}
@@ -282,7 +278,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           ))}
                         </div>
                       </td>
-                      <td className="px-3 py-3">
+                      <td data-label="辈份" className="px-3 py-3">
                         <select
                           value={member.generation}
                           onChange={e => updateField(member.id, 'generation', parseInt(e.target.value))}
@@ -296,7 +292,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           ))}
                         </select>
                       </td>
-                      <td className="px-3 py-3">
+                      <td data-label="同辈排行" className="px-3 py-3">
                         <input
                           type="number"
                           min={1}
@@ -307,7 +303,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           placeholder="同辈排行"
                         />
                       </td>
-                      <td className="px-3 py-3">
+                      <td data-label="家庭排序" className="px-3 py-3">
                         <input
                           type="number"
                           min={1}
@@ -318,13 +314,10 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           placeholder="家庭排序"
                         />
                       </td>
-                      <td className="px-3 py-3">
+                      <td data-label="父母" className="px-3 py-3">
                         <select
                           value={member.parent_id}
-                          onChange={e => {
-                            updateField(member.id, 'parent_id', e.target.value);
-                            setParentFilter(e.target.value);
-                          }}
+                          onChange={e => updateField(member.id, 'parent_id', e.target.value)}
                           disabled={!member.selected}
                           className={`${selectClass} ${!member.selected ? 'bg-slate-100 text-slate-400' : ''}`}
                         >
@@ -334,7 +327,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           ))}
                         </select>
                       </td>
-                      <td className="px-3 py-3">
+                      <td data-label="配偶名字" className="px-3 py-3">
                         <input
                           type="text"
                           value={member.spouse_name}
@@ -355,7 +348,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
             )}
 
             {error && (
-              <div className="mt-4 px-3 py-2 bg-cinnabar-50 text-cinnabar-700 rounded-lg text-xs border border-cinnabar-200">
+              <div role="alert" className="mt-4 px-3 py-2 bg-cinnabar-50 text-cinnabar-700 rounded-lg text-xs border border-cinnabar-200">
                 {error}
               </div>
             )}
@@ -367,11 +360,11 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                 className="flex-1 bg-cinnabar-600 text-paper-card py-3 rounded-xl font-medium hover:bg-cinnabar-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
                 <Save className="w-5 h-5" />
-                {saving ? `保存中 (${savedCount}/${selectedCount})...` : `保存修改 (${selectedCount})`}
+                {saving ? '保存中…' : `保存修改 (${selectedCount})`}
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/members')}
+                onClick={() => navigate(ROUTES.members)}
                 className="px-8 py-3 border border-slate-300 rounded-xl font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 取消

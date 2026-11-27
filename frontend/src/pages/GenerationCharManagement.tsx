@@ -4,6 +4,8 @@ import { Plus, Edit2, Trash2, Eye, EyeOff, Save, X, BookOpen } from 'lucide-reac
 import { api } from '../api/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/Layout';
+import { ConfirmDialog, InlineNotice } from '../components/Feedback';
+import { useFamilyMembers } from '../hooks/useFamilyMembers';
 
 interface GenerationChar {
   id: number;
@@ -26,14 +28,18 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
   const [isAdding, setIsAdding] = useState(false);
   const [addForm, setAddForm] = useState({ generation: 1, char: '' });
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<GenerationChar | null>(null);
+  const { refresh: refreshFamily } = useFamilyMembers(user?.id);
 
   const fetchChars = async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const data = await api.getGenerationChars();
       setChars(data || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '获取字辈数据失败');
+      setLoadError(err instanceof Error ? err.message : '获取字辈数据失败');
     } finally {
       setLoading(false);
     }
@@ -48,17 +54,20 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
     try {
       await api.updateGenerationChar(id, { hidden: !currentHidden });
       setChars(prev => prev.map(c => c.id === id ? { ...c, hidden: !currentHidden } : c));
+      void refreshFamily();
     } catch (err) {
       setError(err instanceof Error ? err.message : '切换隐藏状态失败');
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这个字辈吗？')) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     setError('');
     try {
-      await api.deleteGenerationChar(id);
-      setChars(prev => prev.filter(c => c.id !== id));
+      await api.deleteGenerationChar(deleteTarget.id);
+      setChars(prev => prev.filter(c => c.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      void refreshFamily();
     } catch (err) {
       setError(err instanceof Error ? err.message : '删除字辈失败');
     }
@@ -79,6 +88,7 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
       await api.updateGenerationChar(editingId!, { generation: editForm.generation, char: editForm.char.trim() });
       setChars(prev => prev.map(c => c.id === editingId ? { ...c, generation: editForm.generation, char: editForm.char.trim() } : c));
       setEditingId(null);
+      void refreshFamily();
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存编辑失败');
     }
@@ -95,6 +105,7 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
       setChars(prev => [...prev, data].sort((a, b) => a.generation - b.generation));
       setIsAdding(false);
       setAddForm({ generation: 1, char: '' });
+      void refreshFamily();
     } catch (err) {
       setError(err instanceof Error ? err.message : '添加字辈失败');
     }
@@ -139,8 +150,9 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
             </div>
           </div>
 
+          {loadError && <div className="mb-4"><InlineNotice message={loadError} onRetry={() => void fetchChars()} /></div>}
           {error && (
-            <div className="mb-4 px-3 py-2 bg-cinnabar-50 text-cinnabar-700 rounded-lg text-xs border border-cinnabar-200">
+            <div role="alert" className="mb-4 px-3 py-2 bg-cinnabar-50 text-cinnabar-700 rounded-lg text-xs border border-cinnabar-200">
               {error}
             </div>
           )}
@@ -267,7 +279,7 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(char.id)}
+                            onClick={() => setDeleteTarget(char)}
                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="删除"
                           >
@@ -290,6 +302,9 @@ export default function GenerationCharManagement({ user }: GenerationCharManagem
             </div>
           )}
         </motion.div>
+      <ConfirmDialog open={deleteTarget !== null} title="删除字辈"
+        message={`确定要删除第${deleteTarget?.generation ?? ''}世「${deleteTarget?.char ?? ''}」字辈吗？`}
+        confirmText="删除" onConfirm={() => void handleDelete()} onCancel={() => setDeleteTarget(null)} />
     </Layout>
   );
 }

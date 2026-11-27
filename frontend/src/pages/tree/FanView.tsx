@@ -2,8 +2,12 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom';
 import { User } from '../../types';
 import { useFamilyMembers } from '../../hooks/useFamilyMembers';
+import { useUserRole } from '../../hooks/useUserRole';
 import MemberPanel from '../../components/MemberPanel';
-import { CNode, buildForest, descCount, usePanZoom } from './shared';
+import TreeExportMenu from '../../components/TreeExportMenu';
+import { InlineNotice } from '../../components/Feedback';
+import { CNode, buildForest, descCount, usePanZoom, viewportBounds, intersectsViewport } from './shared';
+import { readIdSet, readPositiveId, useTreeUrlState } from './urlState';
 
 interface FanViewProps {
   user: User | null;
@@ -27,16 +31,20 @@ const GAPR = 6;    // 环间留白
 
 /* 扇形谱图：始祖为圆心、世代为环；配偶不再切走角度，而是环抱成员弧外侧的"婚环"带 */
 const FanView: React.FC<FanViewProps> = ({ user }) => {
-  const { members, loading, error } = useFamilyMembers(user?.id);
-  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
-  const [rootId, setRootId] = useState<number | null>(null);
+  const { members, generationChars, loading, error, refresh } = useFamilyMembers(user?.id);
+  const { canEditContent } = useUserRole(user);
+  const location = useLocation();
+  const initialQuery = new URLSearchParams(location.search);
+  const [collapsed, setCollapsed] = useState<Set<number>>(() => readIdSet(initialQuery.get('collapsed')));
+  const [rootId, setRootId] = useState<number | null>(() => readPositiveId(initialQuery.get('root')));
   const [ringW, setRingW] = useState(76);
   const [innerR, setInnerR] = useState(72);
   const [showSpouse, setShowSpouse] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
-  const [term, setTerm] = useState('');
+  const [term, setTerm] = useState(initialQuery.get('q') || '');
   const [panel, setPanel] = useState<{ id: number; spouse: boolean } | null>(null);
   const initRef = useRef(false);
+  const pendingFocus = useRef<{ id: number; spouse: boolean } | null>(null);
 
   const forest = useMemo(() => buildForest(members), [members]);
   const byId = useMemo(() => {
@@ -85,26 +93,41 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
   geoRef.current = geo;
 
   const getSize = useCallback(() => ({ w: geoRef.current.size || 1, h: geoRef.current.size || 1 }), []);
-  const { view, anim, dragging, viewportRef, zoomAt, centerOn, fit, onMouseDown } = usePanZoom(getSize, members.length > 0);
+  const { view, viewportSize, anim, dragging, viewportRef, zoomAt, centerOn, fit, onMouseDown } = usePanZoom(getSize, !loading && members.length > 0);
 
   const arcPath = (a0: number, a1: number, ri: number, ro: number) => {
     const large = a1 - a0 > Math.PI ? 1 : 0;
     const p = (r: number, a: number) => `${geo.cx + r * Math.cos(a)} ${geo.cy + r * Math.sin(a)}`;
     return `M ${p(ro, a0)} A ${ro} ${ro} 0 ${large} 1 ${p(ro, a1)} L ${p(ri, a1)} A ${ri} ${ri} 0 ${large} 0 ${p(ri, a0)} Z`;
   };
-  const midOf = (s: Sector, ri: number, ro: number) => {
+  const sectorBounds = useCallback((sector: Sector, ri: number, ro: number) => {
+    const angles = [sector.a0, sector.a1];
+    for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      if ((angle - sector.a0 + TAU * 2) % TAU <= sector.a1 - sector.a0) angles.push(angle);
+    }
+    const points = angles.flatMap(angle => [ri, ro].map(radius => ({
+      x: geo.cx + radius * Math.cos(angle), y: geo.cy + radius * Math.sin(angle),
+    })));
+    return {
+      left: Math.min(...points.map(point => point.x)), right: Math.max(...points.map(point => point.x)),
+      top: Math.min(...points.map(point => point.y)), bottom: Math.max(...points.map(point => point.y)),
+    };
+  }, [geo.cx, geo.cy]);
+  const midOf = useCallback((s: Sector, ri: number, ro: number) => {
     const am = (s.a0 + s.a1) / 2, rm = (ri + ro) / 2;
     return { am, rm, x: geo.cx + rm * Math.cos(am), y: geo.cy + rm * Math.sin(am) };
-  };
+  }, [geo.cx, geo.cy]);
 
   const q = term.trim().toLowerCase();
   const hits = useMemo(() => {
-    if (!q) return [] as { s: Sector; spouse: boolean; ri: number; ro: number }[];
-    const out: { s: Sector; spouse: boolean; ri: number; ro: number }[] = [];
-    for (const s of geo.sectors) if (s.n.name.toLowerCase().includes(q)) out.push({ s, spouse: false, ...ring(s.depth) });
-    for (const b of geo.bands) if (b.n.spouse_name!.toLowerCase().includes(q)) out.push({ s: b, spouse: true, ...bandOf(b.depth) });
+    if (!q) return [] as { n: CNode; spouse: boolean }[];
+    const out: { n: CNode; spouse: boolean }[] = [];
+    for (const n of byId.values()) {
+      if (n.name.toLowerCase().includes(q)) out.push({ n, spouse: false });
+      if (showSpouse && n.spouse_name?.toLowerCase().includes(q)) out.push({ n, spouse: true });
+    }
     return out;
-  }, [geo, q, ring, bandOf]);
+  }, [byId, q, showSpouse]);
 
   /* 标签：成员弧内放射书写；配偶婚环带内沿弧切向书写；放不下的统一引线外圈标注 */
   const labels = useMemo(() => {
@@ -164,7 +187,33 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geo, showLabels, ringW, innerR, view.s, pitch, showSpouse]);
 
-  const location = useLocation();
+  const renderGeometry = useMemo(() => {
+    const bounds = viewportBounds(view, viewportSize);
+    return {
+      sectors: geo.sectors.filter(sector => {
+        const { ri, ro } = ring(sector.depth);
+        return intersectsViewport(sectorBounds(sector, ri, ro), bounds);
+      }),
+      bands: geo.bands.filter(band => {
+        const { ri, ro } = bandOf(band.depth);
+        return intersectsViewport(sectorBounds(band, ri, ro), bounds);
+      }),
+    };
+  }, [geo, view, viewportSize, ring, bandOf, sectorBounds]);
+
+  const renderLabels = useMemo(() => {
+    const bounds = viewportBounds(view, viewportSize, 220);
+    return {
+      internal: labels.internal.filter(label => intersectsViewport({
+        left: label.x - 80, right: label.x + 80, top: label.y - 30, bottom: label.y + 30,
+      }, bounds)),
+      ext: labels.ext.filter(label => intersectsViewport({
+        left: Math.min(label.ax, label.ex) - 100, right: Math.max(label.ax, label.ex) + 160,
+        top: label.ey - 30, bottom: label.ey + 30,
+      }, bounds)),
+    };
+  }, [labels, view, viewportSize]);
+
   const focusParam = new URLSearchParams(location.search).get('focus');
   const focusId = focusParam ? Number(focusParam) : null;
   useEffect(() => {
@@ -206,12 +255,48 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
     requestAnimationFrame(() => fit());
   };
 
+  const revealMember = (id: number, spouse: boolean) => {
+    const path = new Set<number>();
+    let current = byId.get(id);
+    while (current) {
+      path.add(current.id);
+      current = current.parent_id ? byId.get(current.parent_id) : undefined;
+    }
+    setCollapsed(previous => new Set([...previous].filter(value => !path.has(value))));
+    pendingFocus.current = { id, spouse };
+  };
+
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (!target || !geo.sectors.length) return;
+    pendingFocus.current = null;
+    const sector = target.spouse
+      ? geo.bands.find(item => item.n.id === target.id)
+      : geo.sectors.find(item => item.n.id === target.id);
+    if (!sector) return;
+    const { ri, ro } = target.spouse ? bandOf(sector.depth) : ring(sector.depth);
+    const center = midOf(sector, ri, ro);
+    centerOn(center.x, center.y, 0);
+    setPanel(target);
+  }, [geo, bandOf, ring, centerOn, midOf]);
+
   const onSearchKey = (e: React.KeyboardEvent) => {
     if (e.key !== 'Enter' || !hits.length) return;
-    const h = hits[0];
-    const c = midOf(h.s, h.ri, h.ro);
-    centerOn(c.x, c.y, 0);
+    const hit = hits[0];
+    if (rootId && !isWithinRoot(hit.n.id, rootId)) setRootId(null);
+    revealMember(hit.n.id, hit.spouse);
   };
+
+  const isWithinRoot = (id: number, ancestorId: number) => {
+    let current = byId.get(id);
+    while (current) {
+      if (current.id === ancestorId) return true;
+      current = current.parent_id ? byId.get(current.parent_id) : undefined;
+    }
+    return false;
+  };
+
+  useTreeUrlState({ rootId, collapsed, term, focusId: panel?.id });
 
   const panelNode = panel ? byId.get(panel.id) : undefined;
   const panelArc = useMemo(() => {
@@ -268,6 +353,8 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
         </label>
         <label><input type="checkbox" checked={showSpouse} onChange={e => setShowSpouse(e.target.checked)} />配偶婚环</label>
         <label><input type="checkbox" checked={showLabels} onChange={e => setShowLabels(e.target.checked)} />姓名标签</label>
+        <TreeExportMenu mode="fan" members={members} generationChars={generationChars}
+          rootMemberId={rootId} collapsedIds={collapsed} showSpouse={showSpouse} showNotes={false} />
         {rootId && (
           <span className="tc-rootchip">
             以 {root?.name} 为根
@@ -277,7 +364,7 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
         {!rootId && <span className="tc-rootchip hintchip">双击任意弧段可以其为根重排</span>}
       </div>
 
-      {error && <div className="px-4 py-2 text-sm text-cinnabar-700 bg-cinnabar-50 border-b border-cinnabar-100">{error}</div>}
+      {error && <div className="px-4 py-2"><InlineNotice message={error} onRetry={() => void refresh()} /></div>}
 
       {!root ? (
         <div className="flex-1 flex items-center justify-center text-slate-500">暂无家谱数据</div>
@@ -295,7 +382,7 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
               ))}
 
               {/* 配偶婚环：环抱成员弧外侧的整跨度环带 */}
-              {geo.bands.map(b => {
+              {renderGeometry.bands.map(b => {
                 const { ri, ro } = bandOf(b.depth);
                 const sel = panel?.id === b.n.id && panel.spouse;
                 const hit = !!q && b.n.spouse_name!.toLowerCase().includes(q);
@@ -303,6 +390,13 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
                 return (
                   <g key={`band-${b.n.id}`}>
                     <path d={arcPath(b.a0, b.a1, ri, ro)} className="fan-sector" data-stop-pan
+                      role="button" tabIndex={0} aria-label={`查看${b.n.spouse_name}详情`}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setPanel({ id: b.n.id, spouse: true });
+                        }
+                      }}
                       fill={sel ? '#F4C8BC' : hit ? '#F6ECC9' : '#F9E3E6'}
                       stroke={sel ? '#B93A26' : hit ? '#C9972C' : '#FFFDF8'}
                       strokeWidth={sel || hit ? 2.5 : 1.2}
@@ -316,13 +410,20 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
               })}
 
               {/* 成员弧：完整角度，子女不再被配偶切分 */}
-              {geo.sectors.map(s => {
+              {renderGeometry.sectors.map(s => {
                 const { ri, ro } = ring(s.depth);
                 const sel = panel?.id === s.n.id && !panel.spouse;
                 const hit = !!q && s.n.name.toLowerCase().includes(q);
                 return (
                   <path key={`sec-${s.n.id}`} d={arcPath(s.a0, s.a1, ri, ro)}
                     className="fan-sector" data-stop-pan
+                    role="button" tabIndex={0} aria-label={`查看${s.n.name}详情`}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setPanel({ id: s.n.id, spouse: false });
+                      }
+                    }}
                     fill={FILL[s.n.gender || 'other']}
                     stroke={sel ? '#B93A26' : hit ? '#C9972C' : '#FFFDF8'}
                     strokeWidth={sel || hit ? 3 : 1.5}
@@ -331,7 +432,7 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
                 );
               })}
 
-              {labels.internal.map(l => (
+              {renderLabels.internal.map(l => (
                 <text key={l.key} className="fan-label" x={l.x} y={l.y}
                   transform={`rotate(${l.deg} ${l.x} ${l.y})`}
                   textAnchor="middle" dominantBaseline="middle"
@@ -339,7 +440,7 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
                   {l.text}
                 </text>
               ))}
-              {labels.ext.map(e => (
+              {renderLabels.ext.map(e => (
                 <g key={e.key} className="fan-label">
                   <path d={`M ${e.ax} ${e.ay} L ${geo.cx + e.side * (labels.rout + 12)} ${e.ey} L ${e.ex - e.side * 4} ${e.ey}`}
                     fill="none" stroke="#B4B0A5" strokeWidth={Math.max(0.8, 1 / view.s)} />
@@ -356,6 +457,13 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
                 <g>
                   <path d={arcPath(-Math.PI / 2, -Math.PI / 2 + TAU - 0.0001, bandOf(0).ri, bandOf(0).ro)}
                     className="fan-sector" data-stop-pan fill="#F9E3E6" stroke="#FFFDF8" strokeWidth={1.2}
+                    role="button" tabIndex={0} aria-label={`查看${root.spouse_name}详情`}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setPanel({ id: root.id, spouse: true });
+                      }
+                    }}
                     onClick={() => setPanel({ id: root.id, spouse: true })} />
                   {showLabels && (
                     <text className="fan-label" x={geo.cx} y={geo.cy - (bandOf(0).ri + bandOf(0).ro) / 2 + 3.5}
@@ -366,6 +474,13 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
                 </g>
               )}
               <circle cx={geo.cx} cy={geo.cy} r={centerR} fill="#B93A26" className="fan-sector" data-stop-pan
+                role="button" tabIndex={0} aria-label={`查看${root.name}详情`}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setPanel({ id: root.id, spouse: false });
+                  }
+                }}
                 onClick={() => setPanel({ id: root.id, spouse: false })}
                 onDoubleClick={() => rootId && reroot(null)} />
               <text x={geo.cx} y={geo.cy - 2} textAnchor="middle" fontSize={Math.min(17, centerR * 0.42)} fill="#FFFDF8"
@@ -383,6 +498,7 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
 
       {panelNode && (
         <MemberPanel node={panelNode} isSpouse={panel!.spouse} collapsed={collapsed.has(panelNode.id)}
+          user={user} canEdit={canEditContent}
           onClose={() => setPanel(null)}
           onCenter={() => {
             if (panelArc) {

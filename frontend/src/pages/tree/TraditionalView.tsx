@@ -3,8 +3,12 @@ import { useLocation } from 'react-router-dom';
 import { ChevronsUp, ChevronsDown } from 'lucide-react';
 import { User } from '../../types';
 import { useFamilyMembers } from '../../hooks/useFamilyMembers';
+import { useUserRole } from '../../hooks/useUserRole';
 import MemberPanel from '../../components/MemberPanel';
-import { CNode, buildForest, layoutTree, unitWidth, descCount, genderSym, LayoutOpts, usePanZoom } from './shared';
+import TreeExportMenu from '../../components/TreeExportMenu';
+import { InlineNotice } from '../../components/Feedback';
+import { CNode, buildForest, layoutTree, unitWidth, descCount, genderSym, LayoutOpts, usePanZoom, viewportBounds, intersectsViewport } from './shared';
+import { readIdSet, useTreeUrlState } from './urlState';
 
 interface TraditionalViewProps {
   user: User | null;
@@ -22,18 +26,23 @@ const yearsShort = (b: string | null, d: string | null) => {
 /* 传统图谱：谱页吊线为主体（竖排右起、墨线吊挂、印章题签），
    融合世系画布的夫妻双卡信息（婚线♥、生卒、性别、卡框）与折叠/详情/搜索能力 */
 const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
-  const { members, loading, error, generationChars } = useFamilyMembers(user?.id);
-  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  const { members, loading, error, generationChars, refresh } = useFamilyMembers(user?.id);
+  const { canEditContent } = useUserRole(user);
+  const location = useLocation();
+  const initialQuery = new URLSearchParams(location.search);
+  const [collapsed, setCollapsed] = useState<Set<number>>(() => readIdSet(initialQuery.get('collapsed')));
   const [font, setFont] = useState(15);
   const [gap, setGap] = useState(26);
   const [level, setLevel] = useState(250);
   const [showSpouse, setShowSpouse] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
   const [frame, setFrame] = useState(true);
-  const [term, setTerm] = useState('');
+  const [term, setTerm] = useState(initialQuery.get('q') || '');
   const [panel, setPanel] = useState<{ id: number; spouse: boolean } | null>(null);
   const initRef = useRef(false);
   const pendingFocus = useRef<number | null>(null);
+  const pendingSpouse = useRef(false);
+  const pendingPanel = useRef(false);
 
   const CW = 76, CH = 190, SW = 56, SH = 170, MGAP = 12, PAD = 70;
   const opts: LayoutOpts = useMemo(() => ({
@@ -60,22 +69,21 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
   }, [placed, collapsed]);
 
   const getSize = useCallback(() => ({ w: placedRef.current.worldW, h: placedRef.current.worldH }), []);
-  const { view, setView, anim, dragging, viewportRef, zoomAt, centerOn, fit, onMouseDown } = usePanZoom(getSize, members.length > 0);
+  const { view, setView, viewportSize, anim, dragging, viewportRef, zoomAt, centerOn, fit, onMouseDown } = usePanZoom(getSize, !loading && members.length > 0);
 
   const q = term.trim().toLowerCase();
   const hits = useMemo(() => {
     if (!q) return [] as { n: CNode; spouse: boolean }[];
     const out: { n: CNode; spouse: boolean }[] = [];
-    for (const n of visible) {
+    for (const n of placed.byId.values()) {
       if (n.name.toLowerCase().includes(q)) out.push({ n, spouse: false });
-      if (showSpouse && n.spouse_name && n.spouse_name.toLowerCase().includes(q)) out.push({ n, spouse: true });
+      if (showSpouse && n.spouse_name?.toLowerCase().includes(q)) out.push({ n, spouse: true });
     }
     return out;
-  }, [visible, q, showSpouse]);
+  }, [placed.byId, q, showSpouse]);
 
   const memberX = (n: CNode) => n.x + (showSpouse && n.spouse_name ? SW + MGAP : 0);
 
-  const location = useLocation();
   const focusParam = new URLSearchParams(location.search).get('focus');
   const focusId = focusParam ? Number(focusParam) : null;
   useEffect(() => {
@@ -102,7 +110,13 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
     pendingFocus.current = null;
     const n = placed.byId.get(id);
     if (!n) return;
-    centerOn(memberX(n) + CW / 2, n.y + CH / 2, 0.7);
+    const spouse = pendingSpouse.current;
+    const openPanel = pendingPanel.current;
+    pendingSpouse.current = false;
+    pendingPanel.current = false;
+    const x = spouse ? n.x + SW / 2 : memberX(n) + CW / 2;
+    centerOn(x, n.y + CH / 2, 0.7);
+    if (openPanel) setPanel({ id, spouse });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placed]);
 
@@ -156,22 +170,39 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
 
   const onSearchKey = (e: React.KeyboardEvent) => {
     if (e.key !== 'Enter' || !hits.length) return;
-    const h = hits[0];
-    const x = h.spouse ? h.n.x + SW / 2 : memberX(h.n) + CW / 2;
-    centerOn(x, h.n.y + CH / 2, 0);
+    const hit = hits[0];
+    const path = new Set<number>();
+    let current: CNode | undefined = hit.n;
+    while (current) {
+      path.add(current.id);
+      current = current.parent_id ? placedRef.current.byId.get(current.parent_id) : undefined;
+    }
+    pendingFocus.current = hit.n.id;
+    pendingSpouse.current = hit.spouse;
+    pendingPanel.current = true;
+    setCollapsed(previous => new Set([...previous].filter(id => !path.has(id))));
   };
+
+  const renderVisible = useMemo(() => {
+    const bounds = viewportBounds(view, viewportSize);
+    return visible.filter(n => {
+      const mx = n.x + (showSpouse && n.spouse_name ? SW + MGAP : 0);
+      const left = showSpouse && n.spouse_name ? Math.min(n.x, mx) : mx;
+      return intersectsViewport({ left, top: n.y, right: mx + CW, bottom: n.y + CH }, bounds);
+    });
+  }, [visible, view, viewportSize, showSpouse]);
 
   const charOf = (gen: number | null) => generationChars.find(c => c.generation === gen)?.char || '';
   const rows = useMemo(() => {
     const ys = new Map<number, number>();
-    visible.forEach(n => { if (!ys.has(n.generation || 0)) ys.set(n.generation || 0, n.y); });
+    placed.byId.forEach(n => { if (!ys.has(n.generation || 0)) ys.set(n.generation || 0, n.y); });
     return [...ys.entries()].sort((a, b) => a[0] - b[0]);
-  }, [visible]);
+  }, [placed.byId]);
 
   const worldJsx = useMemo(() => {
     const lines: React.ReactNode[] = [];
     const cols: React.ReactNode[] = [];
-    for (const n of visible) {
+    for (const n of renderVisible) {
       const mx = memberX(n);
       const ux = n.x + unitW(n) / 2;
       const hasSp = showSpouse && !!n.spouse_name;
@@ -190,6 +221,14 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
 
       cols.push(
         <div key={n.id} data-stop-pan
+          role="button" tabIndex={0} aria-label={`查看${n.name}详情`}
+          onKeyDown={event => {
+            if (event.target !== event.currentTarget) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              setPanel({ id: n.id, spouse: false });
+            }
+          }}
           className={`sc-col${frame ? ' sc-frame' : ''}${hitM ? ' hit' : ''}${selM ? ' selected' : ''}`}
           style={{ left: mx, top: n.y, width: CW, height: CH }}
           onClick={() => setPanel({ id: n.id, spouse: false })}>
@@ -227,6 +266,13 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
         const selS = panel?.id === n.id && panel.spouse;
         cols.push(
           <div key={`${n.id}-sp`} data-stop-pan
+            role="button" tabIndex={0} aria-label={`查看${n.spouse_name}详情`}
+            onKeyDown={event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setPanel({ id: n.id, spouse: true });
+              }
+            }}
             className={`sc-col sc-sp${hitS ? ' hit' : ''}${selS ? ' selected' : ''}`}
             style={{ left: n.x, top: n.y + (CH - SH) / 2, width: SW, height: SH }}
             onClick={() => setPanel({ id: n.id, spouse: true })}>
@@ -254,7 +300,9 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
     }
     return { lines, cols };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, collapsed, q, panel, showSpouse, showNotes, frame, font, toggleFold, collapseSubtree, expandSubtree, fullyCollapsed, fullyExpanded, opts]);
+  }, [renderVisible, collapsed, q, panel, showSpouse, showNotes, frame, font, toggleFold, collapseSubtree, expandSubtree, fullyCollapsed, fullyExpanded, opts]);
+
+  useTreeUrlState({ rootId: null, collapsed, term, focusId: panel?.id });
 
   const panelNode = panel ? placed.byId.get(panel.id) : undefined;
 
@@ -306,9 +354,11 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
         <label><input type="checkbox" checked={showSpouse} onChange={e => setShowSpouse(e.target.checked)} />配偶柱</label>
         <label><input type="checkbox" checked={showNotes} onChange={e => setShowNotes(e.target.checked)} />排行注记</label>
         <label><input type="checkbox" checked={frame} onChange={e => setFrame(e.target.checked)} />卡框</label>
+        <TreeExportMenu mode="traditional" members={members} generationChars={generationChars}
+          rootMemberId={null} collapsedIds={collapsed} showSpouse={showSpouse} showNotes={showNotes} />
       </div>
 
-      {error && <div className="px-4 py-2 text-sm text-cinnabar-700 bg-cinnabar-50 border-b border-cinnabar-100">{error}</div>}
+      {error && <div className="px-4 py-2"><InlineNotice message={error} onRetry={() => void refresh()} /></div>}
 
       {members.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-slate-500">暂无家谱数据</div>
@@ -334,6 +384,7 @@ const TraditionalView: React.FC<TraditionalViewProps> = ({ user }) => {
 
       {panelNode && (
         <MemberPanel node={panelNode} isSpouse={panel!.spouse} collapsed={collapsed.has(panelNode.id)}
+          user={user} canEdit={canEditContent}
           onClose={() => setPanel(null)}
           onCenter={() => centerOn(memberX(panelNode) + CW / 2, panelNode.y + CH / 2, 0)}
           onFold={() => toggleFold(panelNode.id)} />

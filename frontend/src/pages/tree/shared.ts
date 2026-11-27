@@ -82,10 +82,26 @@ export function layoutTree(roots: CNode[], collapsed: Set<number>, o: LayoutOpts
 }
 
 export interface View { x: number; y: number; s: number }
+export interface ViewportSize { w: number; h: number }
+export interface ViewportBounds { left: number; top: number; right: number; bottom: number }
+
+export const viewportBounds = (view: View, size: ViewportSize, margin = 120): ViewportBounds => ({
+  left: (-view.x - margin) / view.s,
+  top: (-view.y - margin) / view.s,
+  right: (size.w - view.x + margin) / view.s,
+  bottom: (size.h - view.y + margin) / view.s,
+});
+
+export const intersectsViewport = (
+  box: { left: number; top: number; right: number; bottom: number },
+  bounds: ViewportBounds,
+): boolean => box.right >= bounds.left && box.left <= bounds.right
+  && box.bottom >= bounds.top && box.top <= bounds.bottom;
 
 /* 画布通用平移缩放：滚轮/拖拽/单指平移/双指捏合 */
 export function usePanZoom(getSize: () => { w: number; h: number }, ready: boolean) {
   const [view, setView] = useState<View>({ x: 0, y: 0, s: 1 });
+  const [viewportSize, setViewportSize] = useState<ViewportSize>({ w: 0, h: 0 });
   const [anim, setAnim] = useState(false);
   const [dragging, setDragging] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -101,6 +117,15 @@ export function usePanZoom(getSize: () => { w: number; h: number }, ready: boole
     animTimer.current = window.setTimeout(() => setAnim(false), 420);
   }, []);
   useEffect(() => () => window.clearTimeout(animTimer.current), []);
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp || !ready) return;
+    const measure = () => setViewportSize({ w: vp.clientWidth, h: vp.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(vp);
+    return () => observer.disconnect();
+  }, [ready]);
 
   const zoomAt = useCallback((px: number, py: number, factor: number) => {
     setView(v => {
@@ -137,6 +162,10 @@ export function usePanZoom(getSize: () => { w: number; h: number }, ready: boole
       zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 0.89);
     };
     const onStart = (e: TouchEvent) => {
+      if ((e.target as HTMLElement).closest('[data-stop-pan]')) {
+        touchRef.current = null;
+        return;
+      }
       if (e.touches.length === 1) {
         const t = e.touches[0];
         const v = viewRef.current;
@@ -166,11 +195,13 @@ export function usePanZoom(getSize: () => { w: number; h: number }, ready: boole
     vp.addEventListener('touchstart', onStart, { passive: true });
     vp.addEventListener('touchmove', onMove, { passive: false });
     vp.addEventListener('touchend', onEnd);
+    vp.addEventListener('touchcancel', onEnd);
     return () => {
       vp.removeEventListener('wheel', onWheel);
       vp.removeEventListener('touchstart', onStart);
       vp.removeEventListener('touchmove', onMove);
       vp.removeEventListener('touchend', onEnd);
+      vp.removeEventListener('touchcancel', onEnd);
     };
   }, [zoomAt, ready]);
 
@@ -195,5 +226,5 @@ export function usePanZoom(getSize: () => { w: number; h: number }, ready: boole
     setDragging(true);
   };
 
-  return { view, setView, anim, dragging, viewportRef, zoomAt, centerOn, fit, onMouseDown };
+  return { view, setView, viewportSize, anim, dragging, viewportRef, zoomAt, centerOn, fit, onMouseDown };
 }

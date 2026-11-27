@@ -69,16 +69,29 @@
 .tc-row { display: flex; padding: 6px 0; border-bottom: 1px dashed #f1eee6; font-size: 13px; }
 .tc-row .k { width: 76px; flex-shrink: 0; color: #98948a; }
 .tc-row .v { color: #46433b; word-break: break-all; }
-.tc-panel .foot { padding: 10px 14px; border-top: 1px solid #f1eee6; display: flex; gap: 8px; }
+.tc-panel .foot { padding: 10px 14px; border-top: 1px solid #f1eee6; display: flex; flex-wrap: wrap; gap: 8px; }
+.tc-panel :is(button, input, select, textarea):focus-visible,
+.tc-bar :is(button, input):focus-visible,
+.sc-col:focus-visible,
+.fan-sector:focus-visible { outline: 3px solid rgba(185, 58, 38, .35); outline-offset: 2px; }
 
 @media (max-width: 640px) {
   .tc-bar { flex-wrap: wrap; height: auto; padding: 8px 10px; gap: 8px; }
   .tc-search { flex: 1 1 100%; margin-left: 0; order: -1; }
   .tc-ctl { margin-left: auto; }
   .tc-stats { display: none; }
-  .tc-panel { width: calc(100% - 24px); }
+  .tc-panel { width: calc(100% - 24px); top: 8px; right: 12px; bottom: 8px; }
   .tc-hint { display: none; }
   .tc-bar2 input[type="range"] { width: 64px; }
+}
+
+@media (pointer: coarse) {
+  .tc-fold, .sc-mini { position: relative; }
+  .tc-fold::after, .sc-mini::after {
+    content: ""; position: absolute; inset: -11px; border-radius: 50%;
+  }
+  .tc-ctl button, .tc-rootchip button, .tc-export > summary { min-height: 44px; }
+  .tc-search input, .tc-export-formats button { min-height: 44px; }
 }
 
 /* ── 第二控制行：滑杆/开关/换根 ── */
@@ -97,6 +110,35 @@
 }
 .tc-rootchip button { border: none; background: #fae4de; color: #9a2e1e; border-radius: 999px; padding: 1px 8px; cursor: pointer; font-size: 11px; }
 .tc-rootchip.hintchip { color: #98948a; border-style: dashed; }
+
+.tc-export { position: relative; margin-left: auto; }
+.tc-export > summary {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 3px 9px;
+  border: 1px solid #d8d4ca; border-radius: 7px; background: #fffdf8; cursor: pointer;
+  color: #9a2e1e; font-weight: 600; list-style: none; user-select: none;
+}
+.tc-export > summary::-webkit-details-marker { display: none; }
+.tc-export > summary:hover, .tc-export[open] > summary { background: #fae4de; border-color: #e07a62; }
+.tc-export-panel {
+  position: absolute; top: calc(100% + 7px); right: 0; z-index: 60; width: 244px;
+  padding: 12px; border: 1px solid #d8d4ca; border-radius: 10px; background: #fffdf8;
+  box-shadow: 0 12px 32px rgba(29, 28, 23, .18); color: #46433b;
+}
+.tc-export-title { font-size: 13px; font-weight: 700; margin-bottom: 9px; }
+.tc-export-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.tc-export-field select { flex: 1; max-width: 138px; border: 1px solid #d8d4ca; border-radius: 5px; padding: 4px; background: #fff; }
+.tc-export-check { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; cursor: pointer; }
+.tc-export-check input { accent-color: #b93a26; }
+.tc-export-formats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 11px; }
+.tc-export-formats button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 32px;
+  border: 1px solid #d8d4ca; border-radius: 6px; background: #faf8f2; cursor: pointer; font-size: 12px;
+}
+.tc-export-formats button:hover { border-color: #e07a62; background: #fae4de; }
+.tc-export-formats button:disabled { opacity: .5; cursor: wait; }
+.tc-export-hint { margin: 9px 0 0; font-size: 10px; line-height: 1.5; color: #98948a; }
+.tc-export-error { margin: 8px 0 0; font-size: 11px; color: #b93a26; }
+.tc-export :is(summary, select, button, input):focus-visible { outline: 3px solid rgba(185, 58, 38, .35); outline-offset: 2px; }
 
 /* ── 扇形谱图 ── */
 .fan-sector { cursor: pointer; transition: filter .15s; }

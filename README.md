@@ -10,7 +10,9 @@
 - 家族图册：上传（落盘 + 缩略图）、审核状态机（pending → approved / rejected / hidden）、标签
 - 账号与三档权限：admin / editor / viewer
 - 家谱展示双风格：**扇形谱图**（默认首选：环状放射、配偶为环抱成员弧的"婚环"带、双击换根、全名字标注）、**传统图谱**（竖排右起谱页为主体，融合夫妻双柱信息：朱砂婚线♥、生卒、性别、卡框开关、墨线吊挂）
-- 紧凑首页 cockpit：统计条、世系分布、家人动态（搜索 / 排序 / 详情抽屉）、字辈表、图册掠影
+- 图谱导出：JSON / SVG / 高清 PNG / PDF，可选当前分支或整个家谱、折叠后代、配偶与备注
+- 协作维护：批量新增 / 批量编辑原子提交、同辈拖拽排序、详情面板内编辑与添加子女
+- 紧凑首页：统计、世系分布、最近更新与快捷入口；成员管理统一提供表格 / 世系 / 世代三种视图
 - 统一视觉主题：朱砂 + 鎏金 + jade + 黛青 + 暖墨宣纸
 
 ---
@@ -20,7 +22,7 @@
 ```
 ┌────────────────────────┐        REST /api/* (JSON + JWT Bearer)
 │  frontend/  前端项目     │ ────────────────────────────────────────┐
-│  React 18 + TS + Tailwind│        /uploads/* (静态图片)             │
+│  React 18 + TS + Tailwind│        /api/gallery/file (鉴权图片)    │
 │  webpack → 纯静态 dist/  │ ────────────────────────────────────────┤
 ────────────────────────┘                                         ▼
                                               ┌────────────────────────────┐
@@ -57,20 +59,19 @@ chengmai/
 ├── README.md                  # 本文件
 ├── .gitignore
 ├── frontend/                  # ① 前端项目（独立 package.json）
-│   ├── package.json           #    仅 dev / build / typecheck 三个脚本
+│   ├── package.json           #    dev / build / lint / typecheck / test
 │   ├── webpack.config.js      #    devServer 3266，/api 与 /uploads 代理到 8080
 │   ├── tailwind.config.js     #    主题色板（朱砂/鎏金/jade/黛青/暖墨）
 │   ├── tsconfig.json / postcss.config.js
 │   ├── index.html             #    入口模板（含 config.js 运行时配置引用）
 │   ├── public/
-│   │   ├── config.js          #    运行时配置：apiBase（部署后改它，无需重构建）
-│   │   └── prototype-tree.html#    画布原型（参考件，随构建拷贝）
+│   │   └── config.js          #    运行时配置：apiBase（部署后改它，无需重构建）
 │   ├── src/
 │   │   ├── api/client.ts      #    fetch 封装 + token + 401 处理
-│   │   ├── hooks/             #    useFamilyMembers / useGallery / useUserRole
+│   │   ├── hooks/             #    共享数据 Provider / useFamilyMembers / useGallery / useUserRole
 │   │   ├── components/        #    Layout / MemberPanel / AdminRoute / BatchChildrenModal
 │   │   ├── pages/             #    首页 / 双风格谱图 / 列表 / 表单 / 图册 / 账号 / 字辈 / 登录
-│   │   │   └── tree/          #    shared.ts(布局+平移缩放) / FanView / TraditionalView
+│   │   │   └── tree/          #    布局+视口裁剪 / URL 状态 / 双图谱 / 导出引擎
 │   │   ├── styles/index.css   #    全局质感 + ui-* 控件组件类
 │   │   └── types/
 │   └── dist/                  #    构建产物（git 忽略）
@@ -87,7 +88,7 @@ chengmai/
 │       │   ├── web/           #    AuthInterceptor / CorsHandler / ErrorMapper / controller
 │       │   └── util/          #    Json / Time
 │       ├── main/resources/schema.sql
-│       └── test/java/family/  #    37 项 JUnit（内存 SQLite）
+│       └── test/java/family/  #    55 项 JUnit（内存 SQLite）
 └── data/                      # ③ 数据块（git 忽略，含隐私）
     ├── family.db              #    SQLite 主库（WAL 模式）
     ├── family.db-wal / -shm   #    WAL 运行时日志（./backup.sh 在线备份无需停服）
@@ -130,7 +131,7 @@ chengmai/
 在**仓库根目录**执行（数据与静态目录默认相对根目录解析）：
 
 ```bash
-# 构建（含 37 项单元测试）
+# 构建（含 55 项单元测试）
 mvn -f backend/pom.xml package
 
 # 运行（默认端口 8080，数据目录 ./data，静态目录 ./frontend/dist）
@@ -241,12 +242,16 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 | GET | `/api/auth/me` | 登录 | 恢复会话 |
 | PUT | `/api/auth/password` | 登录 | 修改本人密码 |
 | GET | `/api/members` | 登录 | 全量成员 |
-| POST | `/api/members` | admin | 新增（字辈 / 排行可自动计算） |
-| PUT | `/api/members/:id` | admin | 更新（以请求体为准重算排行） |
-| DELETE | `/api/members/:id` | admin | 删除（子女归属置空） |
+| POST | `/api/members` | admin / editor | 新增（字辈 / 排行可自动计算） |
+| POST | `/api/members/batch` | admin / editor | 批量新增，单次最多 500 人，失败整批回滚 |
+| PUT | `/api/members/batch` | admin / editor | 批量更新，单次最多 500 人，失败整批回滚 |
+| PUT | `/api/members/order` | admin / editor | 提交完整同父顺序；重排家庭排行与同性别排行 |
+| PUT | `/api/members/:id` | admin / editor | 更新（以请求体为准重算排行） |
+| DELETE | `/api/members/:id` | admin / editor | 删除（子女归属置空） |
 | GET | `/api/generation-chars` | 登录 | 字辈列表 |
-| POST / PUT / DELETE | `/api/generation-chars[/:id]` | admin | 字辈增改删（世代唯一冲突 409） |
+| POST / PUT / DELETE | `/api/generation-chars[/:id]` | admin / editor | 字辈增改删（世代唯一冲突 409） |
 | GET | `/api/gallery` | 登录 | 按角色可见性返回图片 |
+| GET | `/api/gallery/file?path=...` | 登录 | 按图片审核状态鉴权读取，不做目录直链 |
 | POST | `/api/gallery` | 登录 | multipart 上传，初始 pending |
 | PATCH | `/api/gallery/:id/status` | admin | 审核状态流转 |
 | PUT / DELETE | `/api/gallery/:id` | admin | 改元信息 / 删除（同步删文件） |
@@ -254,22 +259,25 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 | PUT | `/api/users/:id/role` | admin | 改角色（保留至少一名管理员） |
 | DELETE | `/api/users/:id` | admin | 删账号（不能删自己 / 最后一名管理员） |
 
-静态：`/uploads/gallery/*` 图片直链；同源模式下 `/` 托管前端产物。
+同源模式下 `/` 托管前端产物；上传文件保留在数据目录，仅通过鉴权图片接口读取。
 
 ---
 
 ## 七、前端块说明
 
 - 技术栈：React 18 + TypeScript + Tailwind 3 + framer-motion + lucide-react；webpack 5 构建，**无服务端渲染、无 Node 运行时依赖**。
-- 路由：`/login`、`/dashboard-v2`（首页）、`/tree`（世系列表·缩进世系）、`/tree-v2`（世代分组·双列瀑布流，卡内成员按容器宽度自适应 1/2 列）、`/tree-canvas`（家谱图谱，含扇形/传统双风格切换）、`/members`、`/members/new|batch|batch-edit|edit/:id`、`/gallery`、`/generation-chars`、`/accounts`。
+- 路由：`/login`、`/dashboard`（首页）、`/graph`（家谱图谱，含扇形/传统双风格切换）、`/members`（成员管理，`?view=table|tree|generations` 切换表格/世系/世代）、`/members/new`、`/members/:id/edit`、`/members/batch`（`?action=add|edit`）、`/gallery`、`/generation-chars`、`/accounts`。
+  旧地址 `/dashboard-v2`、`/tree-canvas`、`/tree`、`/tree-v2`、`/members/batch-edit`、`/members/edit/:id` 自动重定向，旧书签仍可使用。
 - 双风格共享 `pages/tree/shared.ts`（tidy 布局 + 平移缩放 hook）与 `components/MemberPanel.tsx`（详情面板）；
-  默认首选扇形谱图（选择记忆于 `localStorage.fm_tree_mode_v2`，旧 canvas/scroll 记忆自动迁移为传统图谱）；扇形中配偶不切分成员角度，而是成员弧外侧整跨度的粉色"婚环"带（名字沿环切向书写、♥ 标记、可点击开详情）；
+  默认首选扇形谱图（选择记忆于 `localStorage.tree.graphStyle`，旧 `fm_tree_mode_v2` 记忆自动迁移）；扇形中配偶不切分成员角度，而是成员弧外侧整跨度的粉色"婚环"带（名字沿环切向书写、♥ 标记、可点击开详情）；
   传统图谱以谱页吊线为主体（竖排右起、印章题签、墨线吊挂），融合原画布的夫妻双柱信息（婚线♥、生卒、性别、卡框开关）；
   折叠体系：默认全部展开；工具栏「全部折叠／全部展开」；每个分支节点三钮簇——双箭上=折叠整支（含全部后代）、圆钮=折/展单代（+N 后代计数）、双箭下=展开整支，整支全折/全展时对应双箭钮高亮；折叠后视口自动重定位到操作节点；
-  支持 `#/tree-canvas?focus=<memberId>` 从首页 / 分布图跳转定位并开面板。
+  支持 `#/graph?focus=<memberId>` 从首页 / 分布图跳转定位并开面板；搜索覆盖折叠分支，回车自动展开祖先链。
+- 图谱工作流：导出菜单提供 JSON / SVG / 2x PNG / PDF；URL 查询参数保存 `style / root / focus / q / collapsed`，可直接分享当前视图；详情面板支持编辑成员与配偶、添加子女、同辈拖拽排序（移动端提供上下移动按钮）。
+- 性能与反馈：成员 / 字辈按账号共享 30 秒缓存并合并重复请求；传统卡片、扇形弧段与标签按视口裁剪；页面加载失败显示重试入口，批量写操作失败整批回滚。
 - 主题：色板定义在 `tailwind.config.js`（cinnabar 朱砂 / gilt 鎏金 / jade / qing 黛青 / slate 暖墨 / paper 宣纸）；
   全局控件类 `ui-card / ui-head / ui-title / ui-input / ui-select / ui-btn-* / ui-icon-btn / ui-chip / ui-label / seal` 定义在 `styles/index.css`，新页面请复用而非另起样式。
-- 导航菜单：分组信息架构（总览 / 世系图谱 / 家族档案 / 系统管理），世系列表与世代分组作为家谱图谱子项；实时计数徽标（`useNavCounts`，20s 缓存、按账号与角色隔离）、待审金点、管理员组按角色隐藏；
+- 导航菜单：分组信息架构（总览 / 家谱 / 家族资料 / 系统管理），成员页内切换表格、世系与世代；实时计数徽标（`useNavCounts`，20s 缓存、按账号与角色隔离）、待审金点、管理员组按角色隐藏；
   展开 / 收起 / 移动抽屉三态同构；弹出菜单统一 `ui-menu / ui-menu-item`，分段切换统一 `ui-seg / ui-seg-item`；顶栏带分组面包屑。
 
 ---
@@ -281,7 +289,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
   多静态挂载的前缀剥离行为变化会使 `/uploads` 404，故上传图片改由**显式路由** `/uploads/*` 服务（含路径穿越防护），前端 `/` 静态挂载保留。
 - 分层：`config → db → model → repository → service → web(controller)`，横切（CORS / 鉴权 / 异常映射）独立成类。
 - 安全要点：DAO 列白名单防注入；密码 bcrypt；JWT HS256（sub + role，7 天）；密钥文件 0600；`UserView` 永不暴露哈希；上传扩展名白名单 + 大小限制。
-- 测试：`mvn -f backend/pom.xml test` —— 37 项 JUnit，全部跑在内存 SQLite 上，覆盖自动字辈 / 排行、权限边界、最后管理员保护、token 互通、上传落盘与审核可见性等。
+- 测试：`mvn -f backend/pom.xml test` —— 58 项 JUnit，全部跑在内存 SQLite 上，覆盖自动字辈 / 排行、批量事务回滚、同辈排序、权限边界、最后管理员保护、token 互通、上传落盘与审核可见性等。
 
 ---
 
@@ -290,15 +298,19 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 ```bash
 # 后端单测
 mvn -f backend/pom.xml test
-# 前端类型
-cd frontend && npm run typecheck
-# API 冒烟（登录 + 列表）
-curl -s -X POST localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"demo123"}'
-curl -s localhost:8080/api/members -H "Authorization: Bearer <token>" | head -c 200
+# 前端检查与测试
+cd frontend
+npm run lint
+npm run typecheck
+npm run test:run
+npm run build
+# API 冒烟（自动使用临时 DATA_DIR，不读取真实数据）
+cd ..
+mvn -f backend/pom.xml package
+python3 tests/smoke_test.py
 ```
 
-浏览器回归建议覆盖：登录 → 首页统计与抽屉 → 双风格谱图（搜索 / 折叠 / 换根 / focus 跳转 / 卡框开关）→ 列表筛选排序 → 表单提交 → 图册上传审核 → 账号权限边界。
+浏览器回归建议覆盖：登录 → 强制改密 → 首页统计与抽屉 → 双风格谱图（全量搜索 / 折叠 / 换根 / focus 跳转 / 导出 / 卡框开关）→ 同辈拖拽排序 → 批量编辑 → 图册上传审核 → 账号权限边界 → 移动端抽屉与卡片布局。
 
 ---
 

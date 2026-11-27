@@ -142,6 +142,15 @@ export const api = {
   updateMember(id: number, data: Partial<FamilyMember>) {
     return request<FamilyMember>(`/api/members/${id}`, { method: 'PUT', body: data });
   },
+  updateMembersBatch(data: (Partial<FamilyMember> & { id: number })[]) {
+    return request<FamilyMember[]>('/api/members/batch', { method: 'PUT', body: data });
+  },
+  reorderMembers(parentId: number | null, memberIds: number[]) {
+    return request<FamilyMember[]>('/api/members/order', {
+      method: 'PUT',
+      body: { parent_id: parentId, member_ids: memberIds },
+    });
+  },
   deleteMember(id: number) {
     return request<{ ok: boolean }>(`/api/members/${id}`, { method: 'DELETE' });
   },

@@ -66,6 +66,11 @@ public class MemberRepository {
         return db.queryOne("SELECT * FROM family_members WHERE id = ?", MAPPER, id);
     }
 
+    /** 同一父节点下的兄弟姐妹，按家庭排序返回；parentId 为 null 时查询根节点。 */
+    public List<FamilyMember> findByParentOrdered(Long parentId) {
+        return db.query("SELECT * FROM family_members WHERE parent_id IS ? ORDER BY family_rank ASC, id ASC", MAPPER, parentId);
+    }
+
     public boolean existsById(long id) {
         return db.queryOne("SELECT id FROM family_members WHERE id = ?", rs -> rs.getLong("id"), id).isPresent();
     }

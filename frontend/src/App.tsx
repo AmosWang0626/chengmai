@@ -1,23 +1,60 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { api, onAuthChange } from './api/client';
 import { User } from './types';
 import AdminRoute from './components/AdminRoute';
 import ForcePasswordChange from './components/ForcePasswordChange';
+import { FamilyDataProvider } from './hooks/FamilyDataProvider';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ROUTES, memberEditPath } from './routes';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
-const DashboardV2 = lazy(() => import('./pages/DashboardV2'));
-const FamilyTree = lazy(() => import('./pages/FamilyTree'));
-const FamilyTreeV2 = lazy(() => import('./pages/FamilyTreeV2'));
-const FamilyTreeCanvas = lazy(() => import('./pages/FamilyTreeCanvas'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const TreeGraphPage = lazy(() => import('./pages/TreeGraphPage'));
 const MemberList = lazy(() => import('./pages/MemberList'));
 const MemberForm = lazy(() => import('./pages/MemberForm'));
-const SimpleMemberForm = lazy(() => import('./pages/SimpleMemberForm'));
 const BatchMemberForm = lazy(() => import('./pages/BatchMemberForm'));
 const BatchEditMemberForm = lazy(() => import('./pages/BatchEditMemberForm'));
 const AccountManagement = lazy(() => import('./pages/AccountManagement'));
 const GenerationCharManagement = lazy(() => import('./pages/GenerationCharManagement'));
 const Gallery = lazy(() => import('./pages/Gallery'));
+
+type Permission = 'auth' | 'editor' | 'admin';
+
+function ProtectedRoute({ user, permission = 'auth', children }: {
+  user: User | null;
+  permission?: Permission;
+  children: React.ReactNode;
+}) {
+  if (!user) return <Navigate to={ROUTES.login} replace />;
+  if (permission === 'auth') return <>{children}</>;
+  return <AdminRoute user={user} allowEditor={permission === 'editor'}>{children}</AdminRoute>;
+}
+
+function LegacyRedirect({ to }: { to: string }) {
+  return <Navigate to={to} replace />;
+}
+
+function LegacyTreeCanvasRedirect() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const mode = params.get('mode');
+  params.delete('mode');
+  if (mode === 'fan' || mode === 'traditional') params.set('style', mode);
+  const search = params.toString();
+  return <Navigate to={`${ROUTES.graph}${search ? `?${search}` : ''}`} replace />;
+}
+
+function LegacyMemberEditRedirect() {
+  const { id } = useParams();
+  return <Navigate to={memberEditPath(Number(id))} replace />;
+}
+
+function MemberBatchRoute({ user }: { user: User }) {
+  const location = useLocation();
+  const action = new URLSearchParams(location.search).get('action');
+  return action === 'edit' ? <BatchEditMemberForm user={user} /> : <BatchMemberForm user={user} />;
+}
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -44,76 +81,41 @@ function App() {
   }
 
   return (
-    <HashRouter>
-      <Suspense
-        fallback={
-          <div className="min-h-screen flex items-center justify-center bg-paper" role="status" aria-live="polite">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cinnabar-600" aria-hidden="true" />
-            <span className="sr-only">页面加载中…</span>
-          </div>
-        }
-      >
-        <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/dashboard-v2" /> : <LoginPage />}
-        />
-        <Route
-          path="/dashboard"
-          element={user ? <DashboardV2 user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/dashboard-v2"
-          element={user ? <DashboardV2 user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/tree-canvas"
-          element={user ? <FamilyTreeCanvas user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/tree"
-          element={user ? <FamilyTree user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/tree-v2"
-          element={user ? <FamilyTreeV2 user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/members"
-          element={user ? <MemberList user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/members/new"
-          element={user ? <AdminRoute user={user} allowEditor><SimpleMemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/members/batch"
-          element={user ? <AdminRoute user={user} allowEditor><BatchMemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/members/batch-edit"
-          element={user ? <AdminRoute user={user} allowEditor><BatchEditMemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/members/edit/:id"
-          element={user ? <AdminRoute user={user} allowEditor><MemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/accounts"
-          element={user ? <AdminRoute user={user}><AccountManagement user={user} /></AdminRoute> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/generation-chars"
-          element={user ? <AdminRoute user={user} allowEditor><GenerationCharManagement user={user} /></AdminRoute> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/gallery"
-          element={user ? <Gallery user={user} /> : <Navigate to="/login" />}
-        />
-        <Route path="/" element={<Navigate to={user ? "/dashboard-v2" : "/login"} />} />
-        </Routes>
-      </Suspense>
-    </HashRouter>
+    <ErrorBoundary>
+      <FamilyDataProvider>
+        <HashRouter>
+          <Suspense
+            fallback={
+              <div className="min-h-screen flex items-center justify-center bg-paper" role="status" aria-live="polite">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cinnabar-600" aria-hidden="true" />
+                <span className="sr-only">页面加载中…</span>
+              </div>
+            }
+          >
+            <Routes>
+              <Route path={ROUTES.login} element={user ? <Navigate to={ROUTES.dashboard} /> : <LoginPage />} />
+              <Route path={ROUTES.dashboard} element={<ProtectedRoute user={user}><DashboardPage user={user} /></ProtectedRoute>} />
+              <Route path={ROUTES.graph} element={<ProtectedRoute user={user}><TreeGraphPage user={user} /></ProtectedRoute>} />
+              <Route path={ROUTES.members} element={<ProtectedRoute user={user}><MemberList user={user} /></ProtectedRoute>} />
+              <Route path={ROUTES.memberNew} element={<ProtectedRoute user={user} permission="editor"><MemberForm user={user} /></ProtectedRoute>} />
+              <Route path={ROUTES.memberEdit} element={<ProtectedRoute user={user} permission="editor"><MemberForm user={user} /></ProtectedRoute>} />
+              <Route path={ROUTES.memberBatch} element={<ProtectedRoute user={user} permission="editor"><MemberBatchRoute user={user!} /></ProtectedRoute>} />
+              <Route path={ROUTES.accounts} element={<ProtectedRoute user={user} permission="admin"><AccountManagement user={user} /></ProtectedRoute>} />
+              <Route path={ROUTES.generationChars} element={<ProtectedRoute user={user} permission="editor"><GenerationCharManagement user={user} /></ProtectedRoute>} />
+              <Route path={ROUTES.gallery} element={<ProtectedRoute user={user}><Gallery user={user} /></ProtectedRoute>} />
+
+              <Route path="/dashboard-v2" element={<LegacyRedirect to={ROUTES.dashboard} />} />
+              <Route path="/tree-canvas" element={<LegacyTreeCanvasRedirect />} />
+              <Route path="/tree" element={<LegacyRedirect to={`${ROUTES.members}?view=tree`} />} />
+              <Route path="/tree-v2" element={<LegacyRedirect to={`${ROUTES.members}?view=generations`} />} />
+              <Route path="/members/batch-edit" element={<LegacyRedirect to={`${ROUTES.memberBatch}?action=edit`} />} />
+              <Route path="/members/edit/:id" element={<LegacyMemberEditRedirect />} />
+              <Route path="*" element={<Navigate to={user ? ROUTES.dashboard : ROUTES.login} replace />} />
+            </Routes>
+          </Suspense>
+        </HashRouter>
+      </FamilyDataProvider>
+    </ErrorBoundary>
   );
 }
 

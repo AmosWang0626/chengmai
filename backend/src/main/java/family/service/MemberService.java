@@ -8,6 +8,8 @@ import family.repository.MemberRepository;
 import family.util.Time;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,25 +85,124 @@ public class MemberService {
         return db.inTransaction(() -> bodies.stream().map(body -> create(actor, body)).toList());
     }
 
-    /** 部分更新：只处理请求体中出现的字段；始终刷新 updated_at。 */
-    public FamilyMember update(long id, Map<String, Object> body) {
-        return db.inTransaction(() -> updateInternal(id, body));
+    /** 批量更新：任一条失败则整批回滚。 */
+    public List<FamilyMember> updateBatch(List<Map<String, Object>> bodies) {
+        if (bodies == null || bodies.isEmpty()) {
+            throw new ApiException(400, "请至少选择一名成员");
+        }
+        if (bodies.size() > 500) {
+            throw new ApiException(400, "单次最多更新 500 名成员");
+        }
+        return db.inTransaction(() -> {
+            validateBatchHierarchy(bodies);
+            return bodies.stream().map(this::updateBatchItem).toList();
+        });
     }
 
-    private FamilyMember updateInternal(long id, Map<String, Object> body) {
+    private FamilyMember updateBatchItem(Map<String, Object> body) {
+        if (!body.containsKey("id")) {
+            throw new ApiException(400, "批量更新缺少成员 id");
+        }
+        return updateInternal(requiredLong(body.get("id"), "成员 id"), body, false);
+    }
+
+    private void validateBatchHierarchy(List<Map<String, Object>> bodies) {
+        Map<Long, Long> parents = new HashMap<>();
+        members.findAllOrdered().forEach(member -> parents.put(member.id(), member.parentId()));
+        Set<Long> updatedIds = new HashSet<>();
+        for (Map<String, Object> body : bodies) {
+            if (!body.containsKey("id")) {
+                throw new ApiException(400, "批量更新缺少成员 id");
+            }
+            long id = requiredLong(body.get("id"), "成员 id");
+            if (!parents.containsKey(id)) {
+                throw new ApiException(404, "成员不存在");
+            }
+            if (!updatedIds.add(id)) {
+                throw new ApiException(400, "批量更新成员不能重复");
+            }
+            if (body.containsKey("parent_id")) {
+                Long parentId = parentIdOrNull(body.get("parent_id"));
+                if (parentId != null && !parents.containsKey(parentId)) {
+                    throw new ApiException(400, "所选父节点不存在");
+                }
+                if (parentId != null && parentId == id) {
+                    throw new ApiException(400, "不能将自己设为自己的父节点");
+                }
+                parents.put(id, parentId);
+            }
+        }
+        for (long id : updatedIds) {
+            Set<Long> path = new HashSet<>();
+            Long current = id;
+            while (current != null) {
+                if (!path.add(current)) {
+                    throw new ApiException(400, "成员关系不能形成循环");
+                }
+                current = parents.get(current);
+            }
+        }
+    }
+
+    /** 按完整同父分组拖拽后的顺序重排家庭排行与同性别排行。 */
+    public List<FamilyMember> reorder(Long parentId, List<?> rawIds) {
+        if (rawIds == null || rawIds.isEmpty() || rawIds.size() > 500) {
+            throw new ApiException(400, "排序成员数量不合法");
+        }
+        List<Long> ids = rawIds.stream().map(value -> requiredLong(value, "成员 id")).toList();
+        if (new HashSet<>(ids).size() != ids.size()) {
+            throw new ApiException(400, "排序成员不能重复");
+        }
+
+        return db.inTransaction(() -> {
+            if (parentId != null && !members.existsById(parentId)) {
+                throw new ApiException(400, "所选父节点不存在");
+            }
+            List<FamilyMember> siblings = members.findByParentOrdered(parentId);
+            if (siblings.size() != ids.size()
+                    || siblings.stream().anyMatch(member -> !ids.contains(member.id()))) {
+                throw new ApiException(400, "请提交完整的同辈成员顺序");
+            }
+
+            Map<String, Integer> genderRanks = new HashMap<>();
+            String updatedAt = Time.isoNow();
+            for (int i = 0; i < ids.size(); i++) {
+                long id = ids.get(i);
+                FamilyMember member = members.findById(id).orElseThrow(() -> new ApiException(404, "成员不存在"));
+                if (!java.util.Objects.equals(member.parentId(), parentId)) {
+                    throw new ApiException(400, "成员所属同辈已变化，请刷新后重试");
+                }
+                int siblingRank = genderRanks.merge(member.gender(), 1, Integer::sum);
+                members.update(id, Map.of(
+                        "family_rank", i + 1,
+                        "sibling_rank", siblingRank,
+                        "updated_at", updatedAt));
+            }
+            return members.findByParentOrdered(parentId);
+        });
+    }
+
+    /** 部分更新：只处理请求体中出现的字段；始终刷新 updated_at。 */
+    public FamilyMember update(long id, Map<String, Object> body) {
+        return db.inTransaction(() -> updateInternal(id, body, true));
+    }
+
+    private FamilyMember updateInternal(long id, Map<String, Object> body, boolean validateHierarchy) {
         FamilyMember existing = members.findById(id).orElseThrow(() -> new ApiException(404, "成员不存在"));
         Map<String, Object> data = pickFields(body);
         validate(data, false);
         if (data.containsKey("parent_id")) {
             Long parentId = parentIdOrNull(data.get("parent_id"));
-            if (parentId != null && parentId == id) {
-                throw new ApiException(400, "不能将自己设为自己的父节点");
-            }
-            if (parentId != null && !members.existsById(parentId)) {
-                throw new ApiException(400, "所选父节点不存在");
-            }
-            if (parentId != null && members.isAncestor(id, parentId)) {
-                throw new ApiException(400, "不能将后代设为父节点");
+            if (validateHierarchy) {
+                if (parentId != null && parentId == id) {
+                    throw new ApiException(400, "不能将自己设为自己的父节点");
+                }
+                if (parentId != null && !members.existsById(parentId)) {
+                    throw new ApiException(400, "所选父节点不存在");
+                }
+                if (parentId != null && members.isAncestor(id, parentId)) {
+                    throw new ApiException(400, "不能将后代设为父节点");
+                }
             }
             data.put("parent_id", parentId);
         }
@@ -212,6 +313,18 @@ public class MemberService {
                 return new BigDecimal(n.toString()).intValueExact();
             }
             return Integer.parseInt(String.valueOf(value).trim());
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw new ApiException(400, label + "必须为整数");
+        }
+    }
+
+    private static Long requiredLong(Object value, String label) {
+        if (value == null) throw new ApiException(400, label + "不能为空");
+        try {
+            if (value instanceof Number n) {
+                return new BigDecimal(n.toString()).longValueExact();
+            }
+            return Long.parseLong(String.valueOf(value).trim());
         } catch (NumberFormatException | ArithmeticException e) {
             throw new ApiException(400, label + "必须为整数");
         }

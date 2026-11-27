@@ -186,6 +186,101 @@ class MemberServiceTest {
     }
 
     @Test
+    @DisplayName("批量更新任一条失败则整批回滚")
+    void batchUpdateRollsBackOnFailure() {
+        FamilyMember first = service.create(admin, body("name", "甲"));
+        FamilyMember second = service.create(admin, body("name", "乙"));
+        ApiException e = assertThrows(ApiException.class, () -> service.updateBatch(List.of(
+                body("id", first.id(), "name", "甲改"),
+                body("id", second.id(), "name", " "))));
+        assertEquals(400, e.status());
+        assertEquals("甲", service.update(first.id(), body()).name());
+        assertEquals("乙", service.update(second.id(), body()).name());
+    }
+
+    @Test
+    @DisplayName("批量更新互设父节点时拒绝并整批回滚")
+    void batchUpdateRejectsFinalParentCycle() {
+        FamilyMember first = service.create(admin, body("name", "甲"));
+        FamilyMember second = service.create(admin, body("name", "乙", "parent_id", first.id()));
+
+        ApiException e = assertThrows(ApiException.class, () -> service.updateBatch(List.of(
+                body("id", first.id(), "name", "甲改", "parent_id", second.id()),
+                body("id", second.id(), "parent_id", first.id()))));
+        assertEquals(400, e.status());
+
+        FamilyMember unchangedFirst = service.list().stream().filter(m -> m.id().equals(first.id())).findFirst().orElseThrow();
+        FamilyMember unchangedSecond = service.list().stream().filter(m -> m.id().equals(second.id())).findFirst().orElseThrow();
+        assertEquals("甲", unchangedFirst.name());
+        assertNull(unchangedFirst.parentId());
+        assertEquals(first.id(), unchangedSecond.parentId());
+    }
+
+    @Test
+    @DisplayName("批量更新按最终关系校验允许无环的联动调整")
+    void batchUpdateValidatesFinalHierarchy() {
+        FamilyMember root = service.create(admin, body("name", "根"));
+        FamilyMember child = service.create(admin, body("name", "子", "parent_id", root.id()));
+        FamilyMember grandchild = service.create(admin, body("name", "孙", "parent_id", child.id()));
+
+        List<FamilyMember> updated = service.updateBatch(List.of(
+                body("id", root.id(), "parent_id", child.id()),
+                body("id", child.id(), "parent_id", null)));
+
+        assertEquals(child.id(), updated.get(0).parentId());
+        assertNull(updated.get(1).parentId());
+        assertEquals(child.id(), service.list().stream().filter(m -> m.id().equals(grandchild.id())).findFirst().orElseThrow().parentId());
+    }
+
+    @Test
+    @DisplayName("批量更新重复 id 时整批回滚")
+    void batchUpdateRejectsDuplicateIds() {
+        FamilyMember member = service.create(admin, body("name", "甲"));
+        ApiException e = assertThrows(ApiException.class, () -> service.updateBatch(List.of(
+                body("id", member.id(), "name", "甲改"),
+                body("id", member.id(), "name", "甲再改"))));
+        assertEquals(400, e.status());
+        assertEquals("甲", service.list().get(0).name());
+    }
+
+    @Test
+    @DisplayName("批量更新缺少 id 时整批回滚")
+    void batchUpdateRequiresIds() {
+        FamilyMember first = service.create(admin, body("name", "甲"));
+        ApiException e = assertThrows(ApiException.class, () -> service.updateBatch(List.of(
+                body("id", first.id(), "name", "甲改"), body("name", "无 id"))));
+        assertEquals(400, e.status());
+        assertEquals("甲", service.update(first.id(), body()).name());
+    }
+
+    @Test
+    @DisplayName("同辈拖拽重排家庭排行与同性别排行")
+    void reorderUpdatesFamilyAndGenderRanks() {
+        FamilyMember parent = service.create(admin, body("name", "父"));
+        FamilyMember son1 = service.create(admin, body("name", "子1", "gender", "male", "parent_id", parent.id()));
+        FamilyMember daughter = service.create(admin, body("name", "女1", "gender", "female", "parent_id", parent.id()));
+        FamilyMember son2 = service.create(admin, body("name", "子2", "gender", "male", "parent_id", parent.id()));
+
+        List<FamilyMember> ordered = service.reorder(parent.id(), List.of(son2.id(), daughter.id(), son1.id()));
+
+        assertEquals(List.of(son2.id(), daughter.id(), son1.id()), ordered.stream().map(FamilyMember::id).toList());
+        assertEquals(List.of(1, 2, 3), ordered.stream().map(FamilyMember::familyRank).toList());
+        assertEquals(List.of(1, 1, 2), ordered.stream().map(FamilyMember::siblingRank).toList());
+    }
+
+    @Test
+    @DisplayName("同辈排序拒绝重复或不完整分组")
+    void reorderRejectsIncompleteGroups() {
+        FamilyMember parent = service.create(admin, body("name", "父"));
+        FamilyMember son1 = service.create(admin, body("name", "子1", "parent_id", parent.id()));
+        FamilyMember son2 = service.create(admin, body("name", "子2", "parent_id", parent.id()));
+        assertEquals(400, assertThrows(ApiException.class,
+                () -> service.reorder(parent.id(), List.of(son2.id()))).status());
+        assertEquals(400, assertThrows(ApiException.class,
+                () -> service.reorder(parent.id(), List.of(son1.id(), son1.id()))).status());
+    }
+
+    @Test
     @DisplayName("删除后子女归属置空")
     void childrenParentClearedAfterDeletion() {
         FamilyMember parent = service.create(admin, body("name", "父", "generation", 25));

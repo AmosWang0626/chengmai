@@ -3,15 +3,17 @@ import { User } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
 import { useUserRole } from '../hooks/useUserRole';
+import { ROUTES, memberEditPath } from '../routes';
 import { TreeNode } from '../types';
-import Layout from '../components/Layout';
+import { PageError } from '../components/Feedback';
+import { genderTint, genderSym } from './tree/shared';
 import {
   ChevronDown, ChevronRight,
   ZoomIn, ZoomOut, Maximize2, Search, GitBranch, Edit2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-interface FamilyTreeProps {
+interface MemberTreeViewProps {
   user: User | null;
 }
 
@@ -24,20 +26,26 @@ interface TreeViewNode {
   path: number[];
 }
 
-const genderTint = (g: string | null) =>
-  g === 'male' ? 'bg-blue-100 text-blue-700' : g === 'female' ? 'bg-pink-100 text-pink-700' : 'bg-qing-100 text-qing-700';
-const genderSym = (g: string | null) => g === 'male' ? '♂' : g === 'female' ? '♀' : '○';
+const findNodePath = (nodes: TreeNode[], targetId: number, currentPath: number[] = []): number[] | null => {
+  for (const node of nodes) {
+    if (node.id === targetId) return [...currentPath, node.id];
+    const found = findNodePath(node.children, targetId, [...currentPath, node.id]);
+    if (found) return found;
+  }
+  return null;
+};
 
-const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
+const MemberTreeView: React.FC<MemberTreeViewProps> = ({ user }) => {
   const [selectedRootId, setSelectedRootId] = useState<number | null>(null);
   const [showRootSelector, setShowRootSelector] = useState(false);
-  const { tree, members, loading } = useFamilyMembers(user?.id, selectedRootId);
-  const { isAdmin } = useUserRole(user?.id);
+  const { tree, members, loading, error, refresh } = useFamilyMembers(user?.id, selectedRootId);
+  const { canEditContent } = useUserRole(user);
   const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
   const [scale, setScale] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedNode, setHighlightedNode] = useState<number | null>(null);
   const initRef = useRef(false);
+  const pendingSearchId = useRef<number | null>(null);
 
   /* 切换起点时重新初始化展开状态 */
   useEffect(() => {
@@ -75,28 +83,35 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
   };
   const collapseAll = () => setExpandedNodes(new Set());
 
-  const findNodePath = (nodes: TreeNode[], targetId: number, currentPath: number[] = []): number[] | null => {
-    for (const node of nodes) {
-      if (node.id === targetId) return [...currentPath, node.id];
-      const found = findNodePath(node.children, targetId, [...currentPath, node.id]);
-      if (found) return found;
-    }
-    return null;
-  };
-
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    if (term.trim()) {
-      const found = members.find(m => m.name.toLowerCase().includes(term.toLowerCase()));
-      if (found) {
-        setHighlightedNode(found.id);
-        const path = findNodePath(tree, found.id);
-        if (path) setExpandedNodes(prev => new Set([...prev, ...path]));
-      }
-    } else {
+    if (!term.trim()) {
       setHighlightedNode(null);
+      pendingSearchId.current = null;
+      return;
+    }
+    const found = members.find(member => member.name.toLowerCase().includes(term.toLowerCase()));
+    if (!found) return;
+    setHighlightedNode(found.id);
+    const path = findNodePath(tree, found.id);
+    if (path) {
+      setExpandedNodes(previous => new Set([...previous, ...path]));
+      requestAnimationFrame(() => document.querySelector(`[data-member-id="${found.id}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    } else {
+      pendingSearchId.current = found.id;
+      setSelectedRootId(null);
     }
   };
+
+  useEffect(() => {
+    const id = pendingSearchId.current;
+    if (!id || !tree.length) return;
+    const path = findNodePath(tree, id);
+    if (!path) return;
+    pendingSearchId.current = null;
+    setExpandedNodes(new Set(path));
+    requestAnimationFrame(() => document.querySelector(`[data-member-id="${id}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+  }, [tree]);
 
   const buildTreeView = useCallback((nodes: TreeNode[], level = 0, path: number[] = []): TreeViewNode[] => {
     const result: TreeViewNode[] = [];
@@ -111,19 +126,17 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
 
   const treeViewData = useMemo(() => buildTreeView(tree), [tree, buildTreeView]);
 
-  if (loading) {
+  if (loading && !members.length) {
     return (
-      <Layout user={user} title="世系列表">
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-cinnabar-600"></div>
-        </div>
-      </Layout>
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-cinnabar-600"></div>
+      </div>
     );
   }
 
   return (
-    <Layout user={user} title="世系列表">
-      <div className="max-w-[1400px] mx-auto space-y-3">
+    <div className="max-w-[1400px] mx-auto space-y-3">
+        {error && <PageError message={error} onRetry={() => void refresh()} />}
         <div className="rise ui-card p-2 flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -180,7 +193,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
             <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-500">
               <span className="seal w-12 h-12 text-xl">谱</span>
               <p className="text-sm">暂无家谱数据</p>
-              <Link to="/members/new" className="ui-btn-primary">添加第一位家人</Link>
+              <Link to={ROUTES.memberNew} className="ui-btn-primary">添加第一位家人</Link>
             </div>
           ) : (
             <div className="inline-block min-w-full p-2" style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
@@ -190,7 +203,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
                   const indent = item.level * (window.innerWidth < 640 ? 18 : 30);
                   const n = item.node;
                   return (
-                    <motion.div key={`${item.id}-${index}`}
+                    <motion.div key={`${item.id}-${index}`} data-member-id={item.id}
                       initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.18, delay: Math.min(index * 0.012, 0.3) }}
                       className={`flex items-center gap-2 h-10 px-2 rounded-lg border transition-colors ${item.hasChildren ? 'cursor-pointer' : ''} ${
@@ -222,8 +235,8 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
                         </span>
                       )}
 
-                      {isAdmin && (
-                        <Link to={`/members/edit/${item.id}`} className="ui-icon-btn ml-auto flex-shrink-0" title="编辑" onClick={e => e.stopPropagation()}>
+                      {canEditContent && (
+                        <Link to={memberEditPath(item.id)} className="ui-icon-btn ml-auto flex-shrink-0" title="编辑" onClick={e => e.stopPropagation()}>
                           <Edit2 className="w-3.5 h-3.5" />
                         </Link>
                       )}
@@ -234,9 +247,8 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ user }) => {
             </div>
           )}
         </div>
-      </div>
-    </Layout>
+    </div>
   );
 };
 
-export default FamilyTree;
+export default MemberTreeView;

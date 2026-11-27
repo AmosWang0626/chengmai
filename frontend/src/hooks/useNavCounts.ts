@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { useFamilyMembers } from './useFamilyMembers';
 
 export interface NavCounts {
   members: number;
@@ -9,43 +10,57 @@ export interface NavCounts {
   users: number;
 }
 
-/* 导航计数：模块级缓存 20s，避免每个页面重复拉取；按登录账号隔离 */
-let cache: { key: string; ts: number; data: NavCounts } | null = null;
-let inflight: Promise<NavCounts> | null = null;
+interface RemoteCounts {
+  photos: number;
+  pending: number;
+  users: number;
+}
 
-async function load(key: string, isAdmin: boolean): Promise<NavCounts> {
-  const [members, gallery, chars, users] = await Promise.all([
-    api.getMembers(),
+let cache: { key: string; ts: number; data: RemoteCounts } | null = null;
+const inflight = new Map<string, Promise<RemoteCounts>>();
+
+async function load(key: string, isAdmin: boolean): Promise<RemoteCounts> {
+  const [gallery, users] = await Promise.all([
     api.getGallery(),
-    api.getGenerationChars(),
-    isAdmin ? api.getUsers() : Promise.resolve([])
+    isAdmin ? api.getUsers() : Promise.resolve([]),
   ]);
-  const data: NavCounts = {
-    members: members.length,
-    photos: gallery.filter(g => g.status === 'approved').length,
-    pending: gallery.filter(g => g.status === 'pending').length,
-    chars: chars.length,
-    users: users.length
+  const data = {
+    photos: gallery.filter(image => image.status === 'approved').length,
+    pending: gallery.filter(image => image.status === 'pending').length,
+    users: users.length,
   };
   cache = { key, ts: Date.now(), data };
   return data;
 }
 
-export function useNavCounts(userId: number | undefined, isAdmin: boolean, roleLoading = false): NavCounts | null {
-  const [counts, setCounts] = useState<NavCounts | null>(cache?.data ?? null);
+export function useNavCounts(userId: number | undefined, isAdmin: boolean): NavCounts | null {
+  const family = useFamilyMembers(userId);
+  const [remote, setRemote] = useState<{ key: string; data: RemoteCounts } | null>(null);
+  const key = `${userId}:${isAdmin ? 'a' : 'v'}`;
 
   useEffect(() => {
-    if (!userId || roleLoading) return;
+    if (!userId) return;
     let alive = true;
-    const key = `${userId}:${isAdmin ? 'a' : 'v'}`;
-    if (cache && cache.key === key && Date.now() - cache.ts < 20000) {
-      setCounts(cache.data);
+    if (cache && cache.key === key && Date.now() - cache.ts < 20_000) {
+      setRemote({ key, data: cache.data });
       return;
     }
-    if (!inflight) inflight = load(key, isAdmin).finally(() => { inflight = null; });
-    inflight.then(d => { if (alive) setCounts(d); }).catch(() => {});
+    let request = inflight.get(key);
+    if (!request) {
+      request = load(key, isAdmin).finally(() => inflight.delete(key));
+      inflight.set(key, request);
+    }
+    request.then(data => { if (alive) setRemote({ key, data }); }).catch(() => {});
     return () => { alive = false; };
-  }, [userId, isAdmin, roleLoading]);
+  }, [userId, isAdmin, key]);
 
-  return counts;
+  const data = remote?.key === key ? remote.data : null;
+  if (!data) return null;
+  return {
+    members: family.members.length,
+    photos: data.photos,
+    pending: data.pending,
+    chars: family.generationChars.length,
+    users: data.users,
+  };
 }

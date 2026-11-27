@@ -62,6 +62,9 @@ export interface MemberFormData {
   parent_id: string;
   spouse_name: string;
   spouse_origin: string;
+  spouse_birth_date: string;
+  spouse_death_date: string;
+  notes: string;
   generation: number;
   generation_char: string;
   sibling_rank: number;
