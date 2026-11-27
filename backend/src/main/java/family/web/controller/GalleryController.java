@@ -22,6 +22,13 @@ public class GalleryController {
     }
 
     public void register(RoutesConfig routes) {
+        routes.get("/api/gallery/file", ctx -> {
+            GalleryService.ImageFile file = service.openFile(user(ctx), ctx.queryParam("path"));
+            ctx.contentType(file.contentType());
+            ctx.header("Cache-Control", "private, max-age=300");
+            ctx.result(java.nio.file.Files.newInputStream(file.path()));
+        });
+
         routes.get("/api/gallery", ctx -> ctx.json(service.list(user(ctx))));
 
         // multipart 表单：file 必填，thumbnail 可选，其余为文本字段

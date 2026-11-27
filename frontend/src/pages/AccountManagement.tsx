@@ -5,7 +5,7 @@ import Layout from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, UserPlus, Mail, Shield, AlertCircle, X, CheckCircle, Edit2, Save, UserCog, Lock, Key } from 'lucide-react';
 
-type UserRole = 'admin' | 'viewer';
+type UserRole = 'admin' | 'editor' | 'viewer';
 
 interface AccountManagementProps {
   user: User | null;
@@ -46,7 +46,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
         id: u.id,
         username: u.username || '',
         created_at: u.created_at || '',
-        role: (u.role === 'admin' ? 'admin' : 'viewer') as UserRole,
+        role: (u.role === 'admin' || u.role === 'editor' ? u.role : 'viewer') as UserRole,
       }));
       setAccounts(formattedAccounts);
     } catch (err) {
@@ -128,6 +128,12 @@ export default function AccountManagement({ user }: AccountManagementProps) {
     setError('');
     setSuccess('');
 
+    if (!currentPassword.trim()) {
+      setError('请输入当前密码');
+      setChangePasswordLoading(false);
+      return;
+    }
+
     if (changePasswordNew.length < 6) {
       setError('新密码长度至少6位');
       setChangePasswordLoading(false);
@@ -176,13 +182,15 @@ export default function AccountManagement({ user }: AccountManagementProps) {
   };
 
   const getRoleLabel = (role: UserRole) => {
-    return role === 'admin' ? '管理员' : '普通用户';
+    if (role === 'admin') return '管理员';
+    if (role === 'editor') return '编辑';
+    return '普通用户';
   };
 
   const getRoleColor = (role: UserRole) => {
-    return role === 'admin'
-      ? 'bg-cinnabar-50 text-cinnabar-700'
-      : 'bg-slate-100 text-slate-600';
+    if (role === 'admin') return 'bg-cinnabar-50 text-cinnabar-700';
+    if (role === 'editor') return 'bg-gilt-100 text-gilt-700';
+    return 'bg-slate-100 text-slate-600';
   };
 
   return (
@@ -443,7 +451,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
                     <label className="ui-label">
                       角色
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <button
                         type="button"
                         onClick={() => setNewRole('viewer')}
@@ -455,6 +463,18 @@ export default function AccountManagement({ user }: AccountManagementProps) {
                       >
                         <div className="font-medium">普通用户</div>
                         <div className="text-xs text-slate-500 mt-1">仅可查看</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewRole('editor')}
+                        className={`px-4 py-2 rounded-lg border-2 transition-all text-[13px] ${
+                          newRole === 'editor'
+                            ? 'border-violet-500 bg-cinnabar-50 text-cinnabar-700'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="font-medium">编辑</div>
+                        <div className="text-xs text-slate-500 mt-1">维护成员与字辈</div>
                       </button>
                       <button
                         type="button"
@@ -552,7 +572,7 @@ export default function AccountManagement({ user }: AccountManagementProps) {
                     <label className="ui-label">
                       角色
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <button
                         type="button"
                         onClick={() => setEditRole('viewer')}
@@ -564,6 +584,18 @@ export default function AccountManagement({ user }: AccountManagementProps) {
                       >
                         <div className="font-medium">普通用户</div>
                         <div className="text-xs text-slate-500 mt-1">仅可查看</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditRole('editor')}
+                        className={`px-4 py-2 rounded-lg border-2 transition-all text-[13px] ${
+                          editRole === 'editor'
+                            ? 'border-violet-500 bg-cinnabar-50 text-cinnabar-700'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="font-medium">编辑</div>
+                        <div className="text-xs text-slate-500 mt-1">维护成员与字辈</div>
                       </button>
                       <button
                         type="button"
@@ -686,6 +718,21 @@ export default function AccountManagement({ user }: AccountManagementProps) {
                 </div>
 
                 <form onSubmit={handleChangePassword} className="p-4 space-y-3">
+                  <div>
+                    <label className="ui-label">
+                      当前密码
+                    </label>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="ui-input"
+                      placeholder="请输入当前密码"
+                      autoComplete="current-password"
+                      required
+                    />
+                  </div>
+
                   <div>
                     <label className="ui-label">
                       新密码

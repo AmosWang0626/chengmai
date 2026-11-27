@@ -99,6 +99,49 @@ class GalleryServiceTest {
     }
 
     @Test
+    @DisplayName("待审核图片仅上传者与管理员可读取")
+    void pendingImageReadableOnlyByUploaderAndAdmin() throws Exception {
+        GalleryImage pending = service.upload(viewer, png("a.png"), null, null, null, null);
+        User other = users.findById(users.insert(new User(null, "other", "x", null, Role.VIEWER, null))).orElseThrow();
+        String name = pending.url().substring(pending.url().lastIndexOf('/') + 1);
+
+        assertArrayEquals(PNG, Files.readAllBytes(service.openFile(viewer, pending.url()).path()));
+        assertArrayEquals(PNG, Files.readAllBytes(service.openFile(admin, pending.url()).path()));
+        ApiException error = assertThrows(ApiException.class, () -> service.openFile(other, pending.url()));
+        assertEquals(403, error.status());
+        assertTrue(Files.exists(uploads.resolve(name)));
+    }
+
+    @Test
+    @DisplayName("已通过图片所有人可读取")
+    void approvedImageReadableByEveryone() throws Exception {
+        GalleryImage pending = service.upload(viewer, png("a.png"), null, null, null, null);
+        service.review(pending.id(), "approved", admin);
+        User other = users.findById(users.insert(new User(null, "other", "x", null, Role.VIEWER, null))).orElseThrow();
+
+        for (User user : List.of(viewer, other, admin)) {
+            GalleryService.ImageFile file = service.openFile(user, pending.url());
+            assertArrayEquals(PNG, Files.readAllBytes(file.path()));
+        }
+    }
+
+    @Test
+    @DisplayName("拒绝或隐藏已通过图片时清空审核信息")
+    void rejectionAndHiddenClearApprovalMetadata() {
+        for (String status : List.of("rejected", "hidden")) {
+            GalleryImage pending = service.upload(viewer, png(status + ".png"), null, null, null, null);
+            GalleryImage approved = service.review(pending.id(), "approved", admin);
+            assertNotNull(approved.approvedAt());
+            assertEquals(admin.id(), approved.approvedBy());
+
+            GalleryImage updated = service.review(pending.id(), status, admin);
+            assertEquals(GalleryStatus.parseOrNull(status), updated.status());
+            assertNull(updated.approvedAt());
+            assertNull(updated.approvedBy());
+        }
+    }
+
+    @Test
     @DisplayName("更新元信息")
     void updateMetadata() {
         GalleryImage img = service.upload(admin, png("a.png"), null, "旧", null, null);

@@ -21,6 +21,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   sub?: boolean;
   adminOnly?: boolean;
+  editorOnly?: boolean;
   count?: 'members' | 'photos' | 'chars' | 'users';
   pending?: boolean;
 }
@@ -50,7 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/members', label: '家人列表', icon: Users, count: 'members' },
       { path: '/gallery', label: '家族图册', icon: Image, count: 'photos', pending: true },
-      { path: '/generation-chars', label: '字辈管理', icon: BookOpen, count: 'chars', adminOnly: true }
+      { path: '/generation-chars', label: '字辈管理', icon: BookOpen, count: 'chars', editorOnly: true }
     ]
   },
   {
@@ -65,7 +66,7 @@ const roleLabel: Record<string, string> = { admin: '管理员', editor: '编辑'
 const Layout: React.FC<LayoutProps> = ({ user, children, title }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAdmin, loading: roleLoading } = useUserRole(user?.id);
+  const { isAdmin, canEditContent, loading: roleLoading } = useUserRole(user?.id);
   const counts = useNavCounts(user?.id, isAdmin, roleLoading);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -107,6 +108,7 @@ const Layout: React.FC<LayoutProps> = ({ user, children, title }) => {
 
   const renderItem = (item: NavItem) => {
     if (item.adminOnly && !isAdmin) return null;
+    if (item.editorOnly && !canEditContent) return null;
     if (item.sub && iconOnly) return null;
     const Icon = item.icon;
     const isActive = location.pathname === item.path;
@@ -155,7 +157,7 @@ const Layout: React.FC<LayoutProps> = ({ user, children, title }) => {
           <nav className="flex-1 px-2 pb-2 overflow-y-auto">
             {NAV_GROUPS.map(group => {
               if (group.adminOnly && !isAdmin) return null;
-              const items = group.items.filter(i => !i.adminOnly || isAdmin);
+              const items = group.items.filter(i => (!i.adminOnly || isAdmin) && (!i.editorOnly || canEditContent));
               if (!items.length) return null;
               return (
                 <div key={group.label}>

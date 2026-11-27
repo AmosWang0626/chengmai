@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
-import { ArrowLeft, Save, Plus, Trash2, User as UserIcon, Users } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, User as UserIcon } from 'lucide-react';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -21,7 +21,7 @@ interface MemberRow {
 
 export default function BatchMemberForm({ user }: BatchMemberFormProps) {
   const navigate = useNavigate();
-  const { members, generationChars, addMember, getGenerationChar } = useFamilyMembers(user?.id);
+  const { members, generationChars, addMembersBatch, getGenerationChar } = useFamilyMembers(user?.id);
   const maxGeneration = generationChars.length > 0
     ? Math.max(...generationChars.map(gc => gc.generation))
     : 21;
@@ -76,20 +76,17 @@ export default function BatchMemberForm({ user }: BatchMemberFormProps) {
     setError('');
 
     try {
-      for (const row of validRows) {
-        const data = {
-          name: row.name.trim(),
-          gender: row.gender || null,
-          generation: row.generation,
-          generation_char: getGenerationChar(row.generation),
-          parent_id: row.parent_id ? Number(row.parent_id) : null,
-          spouse_name: row.spouse_name.trim() || null,
-          sibling_rank: row.sibling_rank
-        };
-
-        await addMember(data);
-        setSavedCount(prev => prev + 1);
-      }
+      const payload = validRows.map(row => ({
+        name: row.name.trim(),
+        gender: row.gender || null,
+        generation: row.generation,
+        generation_char: getGenerationChar(row.generation),
+        parent_id: row.parent_id ? Number(row.parent_id) : null,
+        spouse_name: row.spouse_name.trim() || null,
+        sibling_rank: row.sibling_rank,
+      }));
+      const created = await addMembersBatch(payload);
+      setSavedCount(created.length);
 
       setTimeout(() => navigate('/members'), 500);
     } catch (err) {

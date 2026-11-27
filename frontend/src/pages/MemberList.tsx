@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
 import { useUserRole } from '../hooks/useUserRole';
-import { FamilyMember } from '../types';
 import Layout from '../components/Layout';
 import BatchChildrenModal from '../components/BatchChildrenModal';
 import { genderTint } from './tree/shared';
@@ -15,7 +14,7 @@ interface MemberListProps {
 
 export default function MemberList({ user }: MemberListProps) {
   const navigate = useNavigate();
-  const { members, generationChars, loading, error, deleteMember, updateMember, refresh, getGenerationChar } = useFamilyMembers(user?.id);
+  const { members, generationChars, loading, error, deleteMember, refresh } = useFamilyMembers(user?.id);
   const { isAdmin } = useUserRole(user?.id);
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState<string>('');
@@ -74,7 +73,7 @@ export default function MemberList({ user }: MemberListProps) {
     if (!confirm('确定要删除这位家人吗？')) return;
     try {
       await deleteMember(id);
-    } catch (err) {
+    } catch {
       alert('删除失败');
     }
   };

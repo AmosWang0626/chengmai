@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import { ArrowLeft, Save, Edit3, CheckSquare, Square } from 'lucide-react';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
-import { FamilyMember } from '../types';
 import { motion } from 'framer-motion';
 
 interface BatchEditMemberFormProps {

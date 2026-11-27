@@ -80,12 +80,12 @@ const FanView: React.FC<FanViewProps> = ({ user }) => {
     walk(root, -Math.PI / 2, -Math.PI / 2 + TAU, 0);
     const size = 2 * (innerR + maxDepth * pitch + 96) + 48;
     return { sectors, bands, size, cx: size / 2, cy: size / 2, maxDepth };
-  }, [root, collapsed, ringW, innerR, showSpouse, pitch]);
+  }, [root, collapsed, innerR, showSpouse, pitch]);
   const geoRef = useRef(geo);
   geoRef.current = geo;
 
   const getSize = useCallback(() => ({ w: geoRef.current.size || 1, h: geoRef.current.size || 1 }), []);
-  const { view, setView, anim, dragging, viewportRef, zoomAt, centerOn, fit, onMouseDown } = usePanZoom(getSize, members.length > 0);
+  const { view, anim, dragging, viewportRef, zoomAt, centerOn, fit, onMouseDown } = usePanZoom(getSize, members.length > 0);
 
   const arcPath = (a0: number, a1: number, ri: number, ro: number) => {
     const large = a1 - a0 > Math.PI ? 1 : 0;

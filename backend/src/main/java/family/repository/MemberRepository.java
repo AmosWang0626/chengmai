@@ -65,6 +65,18 @@ public class MemberRepository {
         return db.queryOne("SELECT id FROM family_members WHERE id = ?", rs -> rs.getLong("id"), id).isPresent();
     }
 
+    /** ancestorId 是否为 descendantId 的祖先；递归 CTE 同时兼容已有异常数据。 */
+    public boolean isAncestor(long ancestorId, long descendantId) {
+        return db.queryOne("""
+                WITH RECURSIVE ancestors(id) AS (
+                  SELECT parent_id FROM family_members WHERE id = ?
+                  UNION
+                  SELECT m.parent_id FROM family_members m JOIN ancestors a ON m.id = a.id
+                )
+                SELECT 1 FROM ancestors WHERE id = ?
+                """, rs -> rs.getInt(1), descendantId, ancestorId).isPresent();
+    }
+
     /** 插入成员并返回自增 id；generation 缺省按 1 处理（COALESCE），时间戳走数据库默认值。 */
     public long insert(FamilyMember m) {
         return db.insert("INSERT INTO family_members (user_id, name, gender, birth_date, death_date, phone, email, address," +

@@ -3,6 +3,7 @@ package family;
 import family.config.AppConfig;
 import family.db.Database;
 import family.db.Schema;
+import family.repository.AuditRepository;
 import family.repository.GalleryRepository;
 import family.repository.GenerationCharRepository;
 import family.repository.MemberRepository;
@@ -16,6 +17,9 @@ import family.web.ApiRouter;
 import family.web.AuthInterceptor;
 import family.web.CorsHandler;
 import family.web.ErrorMapper;
+import family.web.RequestLogger;
+import family.web.WriteGate;
+import family.web.controller.AuditController;
 import family.web.controller.AuthController;
 import family.web.controller.GalleryController;
 import family.web.controller.GenerationCharController;
@@ -29,6 +33,7 @@ import io.javalin.http.staticfiles.Location;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 
 /** 程序入口：手动构造注入装配各层（web → service → repository → db），启动 Javalin。 */
 public class Main {
@@ -46,14 +51,15 @@ public class Main {
         MemberRepository memberRepo = new MemberRepository(db);
         GenerationCharRepository charRepo = new GenerationCharRepository(db);
         GalleryRepository galleryRepo = new GalleryRepository(db);
+        AuditRepository auditRepo = new AuditRepository(db);
 
         // 服务层
         AuthService authService = new AuthService(userRepo, config.jwtSecretFile());
-        MemberService memberService = new MemberService(memberRepo, charRepo);
+        MemberService memberService = new MemberService(memberRepo, charRepo, db);
         GenerationCharService charService = new GenerationCharService(charRepo);
         GalleryService galleryService = new GalleryService(galleryRepo, config.uploadsDir(),
                 config.maxFileSizeMb() * 1024 * 1024);
-        UserService userService = new UserService(userRepo);
+        UserService userService = new UserService(userRepo, db);
 
         Javalin app = Javalin.create(cfg -> {
             cfg.startup.showJavalinBanner = false;
@@ -73,8 +79,20 @@ public class Main {
             multipart.maxTotalRequestSize(config.maxRequestSizeMb(), SizeUnit.MB);
             cfg.jetty.multipartConfig = multipart;
 
-            // 横切关注点按序注册：CORS → 鉴权 → 异常映射 → 业务路由（Javalin 7 路由需在配置期注册）
-            new CorsHandler().register(cfg.routes);
+            // 横切关注点按序注册：请求日志/审计 → CORS → 鉴权 → 异常映射 → 业务路由（Javalin 7 路由需在配置期注册）
+            new RequestLogger(auditRepo).register(cfg.routes);
+            new WriteGate(config.dataDir()).register(cfg.routes);
+            cfg.routes.get("/health", ctx -> {
+                boolean databaseOk;
+                try {
+                    databaseOk = db.queryOne("SELECT 1", rs -> rs.getInt(1)).isPresent();
+                } catch (Exception e) {
+                    databaseOk = false;
+                }
+                ctx.status(databaseOk ? 200 : 503);
+                ctx.json(Map.of("status", databaseOk ? "ok" : "error", "database", databaseOk));
+            });
+            new CorsHandler(config.corsOrigins()).register(cfg.routes);
             new AuthInterceptor(authService).register(cfg.routes);
             new ErrorMapper().register(cfg.routes);
             new ApiRouter(
@@ -82,24 +100,9 @@ public class Main {
                     new MemberController(memberService),
                     new GenerationCharController(charService),
                     new GalleryController(galleryService),
-                    new UserController(userService)
+                    new UserController(userService),
+                    new AuditController(auditRepo)
             ).register(cfg.routes);
-
-            // 上传图片显式路由服务（/uploads/gallery/xxx）。
-            // Javalin 7 多静态挂载的前缀剥离/匹配行为变化会导致 /uploads 404，故用显式路由保证确定性，并防路径穿越。
-            cfg.routes.get("/uploads/*", ctx -> {
-                String rel = ctx.path().substring("/uploads/".length());
-                Path root = config.uploadsRoot();
-                Path file = root.resolve(rel).normalize();
-                if (!file.startsWith(root) || !Files.isRegularFile(file)) {
-                    ctx.status(404).result("not found");
-                    return;
-                }
-                String type = Files.probeContentType(file);
-                ctx.contentType(type != null ? type : "application/octet-stream");
-                ctx.header("Cache-Control", "public, max-age=86400");
-                ctx.result(Files.newInputStream(file));
-            });
         });
 
         app.start(config.port());

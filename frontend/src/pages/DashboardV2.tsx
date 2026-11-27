@@ -5,8 +5,8 @@ import { Users, PieChart, Image, UserPlus, Search, ChevronRight, ArrowRight, X, 
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
 import { useUserRole } from '../hooks/useUserRole';
 import { useGallery } from '../hooks/useGallery';
-import { assetUrl } from '../api/client';
 import Layout from '../components/Layout';
+import ProtectedImage from '../components/ProtectedImage';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface DashboardV2Props {
@@ -51,7 +51,7 @@ const DashboardV2: React.FC<DashboardV2Props> = ({ user }) => {
   const navigate = useNavigate();
   const { members, generationChars, loading: membersLoading, error: membersError } = useFamilyMembers(user?.id);
   const { isAdmin } = useUserRole(user?.id);
-  const { images, loading: galleryLoading, error: galleryError } = useGallery(user?.id);
+  const { images, loading: galleryLoading, error: galleryError } = useGallery();
   const [term, setTerm] = useState('');
   const [sort, setSort] = useState<'recent' | 'generation' | 'name'>('recent');
   const [selected, setSelected] = useState<FamilyMember | null>(null);
@@ -324,7 +324,7 @@ const DashboardV2: React.FC<DashboardV2Props> = ({ user }) => {
                     {recentImages.map(img => (
                       <button key={img.id} onClick={() => navigate('/gallery')}
                         className="aspect-square rounded-lg overflow-hidden bg-slate-100 group">
-                        <img src={assetUrl(img.thumbnail_url || img.url)} alt={img.title || '家族照片'}
+                        <ProtectedImage src={img.thumbnail_url || img.url} alt={img.title || '家族照片'}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                       </button>
                     ))}

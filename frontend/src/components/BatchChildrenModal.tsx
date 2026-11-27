@@ -23,7 +23,7 @@ interface ChildRow {
 }
 
 export default function BatchChildrenModal({ user, parentIds, isOpen, onClose, onSuccess }: BatchChildrenModalProps) {
-  const { members, generationChars, addMember, getGenerationChar } = useFamilyMembers(user?.id);
+  const { members, addMember, getGenerationChar } = useFamilyMembers(user?.id);
 
   const selectedParents = useMemo(() => {
     return members.filter(m => parentIds.includes(m.id));

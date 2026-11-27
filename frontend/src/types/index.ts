@@ -4,6 +4,7 @@ export interface User {
   full_name: string | null;
   role: 'admin' | 'editor' | 'viewer';
   created_at?: string;
+  password_change_required?: boolean;
 }
 
 export interface FamilyMember {

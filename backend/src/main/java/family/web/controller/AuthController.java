@@ -1,7 +1,6 @@
 package family.web.controller;
 
 import family.model.User;
-import family.model.UserView;
 import family.service.AuthService;
 import family.util.Json;
 import io.javalin.config.RoutesConfig;
@@ -26,7 +25,7 @@ public class AuthController {
 
         // GET /api/auth/me —— 返回当前登录用户
         routes.get("/api/auth/me", ctx ->
-                ctx.json(Map.of("user", UserView.from(user(ctx)))));
+                ctx.json(Map.of("user", auth.view(user(ctx)))));
 
         // PUT /api/auth/password —— 修改自己的密码
         routes.put("/api/auth/password", ctx -> {

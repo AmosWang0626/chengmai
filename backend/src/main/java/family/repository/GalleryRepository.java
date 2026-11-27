@@ -45,6 +45,10 @@ public class GalleryRepository {
         return db.queryOne("SELECT * FROM gallery_images WHERE id = ?", MAPPER, id);
     }
 
+    public Optional<GalleryImage> findByUrl(String url) {
+        return db.queryOne("SELECT * FROM gallery_images WHERE url = ? OR thumbnail_url = ?", MAPPER, url, url);
+    }
+
     /** 插入图片记录并返回自增 id。 */
     public long insert(GalleryImage image) {
         return db.insert("INSERT INTO gallery_images (user_id, url, thumbnail_url, title, description, tags, status)" +
@@ -53,9 +57,10 @@ public class GalleryRepository {
                 Json.write(image.tags()), image.status().wire());
     }
 
-    /** 仅改状态（拒绝/隐藏等），不触碰审核时间与审核人。 */
+    /** 拒绝/隐藏时同步清除审核信息，避免状态与元数据矛盾。 */
     public void updateStatus(long id, GalleryStatus status) {
-        db.update("UPDATE gallery_images SET status = ? WHERE id = ?", status.wire(), id);
+        db.update("UPDATE gallery_images SET status = ?, approved_at = NULL, approved_by = NULL WHERE id = ?",
+                status.wire(), id);
     }
 
     /** 审核通过：同时记录审核时间与审核人。 */

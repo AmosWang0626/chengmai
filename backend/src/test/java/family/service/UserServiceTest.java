@@ -26,7 +26,7 @@ class UserServiceTest {
         db.execute("DELETE FROM users");
         users = new UserRepository(db);
         admin = users.findById(users.insert(new User(null, "admin", "x", null, Role.ADMIN, null))).orElseThrow();
-        service = new UserService(users);
+        service = new UserService(users, db);
     }
 
     @Test
@@ -45,6 +45,7 @@ class UserServiceTest {
         assertEquals(400, assertThrows(ApiException.class, () -> service.create("abc", "123456", "viewer")).status());
         assertEquals(400, assertThrows(ApiException.class, () -> service.create("abcd", "123", "viewer")).status());
         assertEquals(400, assertThrows(ApiException.class, () -> service.create("abcd", "123456", "superman")).status());
+        assertEquals(400, assertThrows(ApiException.class, () -> service.create("testuser", "demo123", "viewer")).status());
     }
 
     @Test

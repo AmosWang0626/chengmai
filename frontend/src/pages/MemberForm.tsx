@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { User } from '../types';
 import { ArrowLeft, Save, User as UserIcon, Calendar, Phone, Mail, MapPin, BookOpen, Briefcase, Heart, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
-import { FamilyMember } from '../types';
 
 interface MemberFormProps {
   user: User | null;
@@ -14,7 +13,7 @@ export default function MemberForm({ user }: MemberFormProps) {
   const idParam = useParams().id;
   const id = idParam ? Number(idParam) : undefined;
   const isEdit = !!id;
-  const { members, generationChars, addMember, updateMember, loading: membersLoading, getGenerationChar } = useFamilyMembers(user?.id);
+  const { members, generationChars, addMember, updateMember, getGenerationChar } = useFamilyMembers(user?.id);
 
   const [formData, setFormData] = useState({
     name: '',

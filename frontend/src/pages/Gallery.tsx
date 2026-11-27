@@ -2,12 +2,12 @@ import React, { useState, useMemo, useRef } from 'react';
 import { User } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus, X, Upload, Image as ImageIcon, Trash2, Eye, EyeOff,
-  CheckCircle, AlertCircle, Tag, Filter, Search, ChevronDown, ChevronUp
+  Plus, X, Upload, Image as ImageIcon, Trash2, EyeOff,
+  CheckCircle, AlertCircle, Tag, Filter, Search
 } from 'lucide-react';
 import Layout from '../components/Layout';
+import ProtectedImage from '../components/ProtectedImage';
 import { useGallery } from '../hooks/useGallery';
-import { assetUrl } from '../api/client';
 import { useUserRole } from '../hooks/useUserRole';
 import { GalleryImage } from '../types/gallery';
 
@@ -37,7 +37,7 @@ interface GalleryProps {
 }
 
 export default function Gallery({ user }: GalleryProps) {
-  const { images, loading, error, allTags, refresh, uploadImage, updateImageStatus, deleteImage, updateImage } = useGallery(user?.id);
+  const { images, loading, error, allTags, uploadImage, updateImageStatus, deleteImage } = useGallery();
   const { isAdmin } = useUserRole(user?.id);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -247,8 +247,8 @@ export default function Gallery({ user }: GalleryProps) {
                 className="group relative aspect-square bg-slate-100 rounded-xl overflow-hidden cursor-pointer"
                 onClick={() => setSelectedImage(image)}
               >
-                <img
-                  src={assetUrl(image.thumbnail_url || image.url)}
+                <ProtectedImage
+                  src={image.thumbnail_url || image.url}
                   alt={image.title || '图片'}
                   className="w-full h-full object-cover transition-transform group-hover:scale-105"
                 />
@@ -419,8 +419,8 @@ export default function Gallery({ user }: GalleryProps) {
               >
                 <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
                   <div className="flex-1 bg-black flex items-center justify-center p-4">
-                    <img
-                      src={assetUrl(selectedImage.url)}
+                    <ProtectedImage
+                      src={selectedImage.url}
                       alt={selectedImage.title || '图片'}
                       className="max-w-full max-h-[60vh] md:max-h-[80vh] object-contain"
                     />

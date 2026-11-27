@@ -81,24 +81,34 @@ export function useFamilyMembers(userId: number | undefined, rootMemberId?: numb
     return rootNodes;
   }, [members, rootMemberId]);
 
-  const getGenerationChar = (generation: number): string => {
+  const getGenerationChar = useCallback((generation: number): string => {
     const char = generationChars.find(gc => gc.generation === generation);
     return char?.char || '';
-  };
+  }, [generationChars]);
 
-  const addMember = async (data: Partial<FamilyMember>) => {
+  const addMember = useCallback(async (data: Partial<FamilyMember>) => {
     const generationChar = data.generation ? getGenerationChar(data.generation) : '';
     const newMember = await api.createMember({ ...data, generation_char: generationChar });
     setMembers(prev => [...prev, newMember]);
     return newMember;
-  };
+  }, [getGenerationChar]);
 
-  const updateMember = async (id: number, data: Partial<FamilyMember>) => {
+  const addMembersBatch = useCallback(async (items: Partial<FamilyMember>[]) => {
+    const payload = items.map(data => ({
+      ...data,
+      generation_char: data.generation ? getGenerationChar(data.generation) : '',
+    }));
+    const created = await api.createMembersBatch(payload);
+    setMembers(prev => [...prev, ...created]);
+    return created;
+  }, [getGenerationChar]);
+
+  const updateMember = useCallback(async (id: number, data: Partial<FamilyMember>) => {
     const generationChar = data.generation ? getGenerationChar(data.generation) : undefined;
     const updatedMember = await api.updateMember(id, { ...data, generation_char: generationChar });
     setMembers(prev => prev.map(m => m.id === id ? updatedMember : m));
     return updatedMember;
-  };
+  }, [getGenerationChar]);
 
   const deleteMember = async (id: number) => {
     await api.deleteMember(id);
@@ -113,6 +123,7 @@ export function useFamilyMembers(userId: number | undefined, rootMemberId?: numb
     tree: buildTree(),
     refresh: fetchMembers,
     addMember,
+    addMembersBatch,
     updateMember,
     deleteMember,
     getGenerationChar

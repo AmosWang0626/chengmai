@@ -42,7 +42,11 @@ public class GenerationCharService {
         if (chars.generationTakenByOther(gen, id)) {
             throw new ApiException(409, "第" + gen + "世已存在字辈配置");
         }
-        String ch = body.containsKey("char") ? String.valueOf(body.get("char")).trim() : existing.charValue();
+        String ch = body.containsKey("char") ? str(body.get("char")) : existing.charValue();
+        if (ch == null || ch.isBlank()) {
+            throw new ApiException(400, "字辈字符不能为空");
+        }
+        ch = ch.trim();
         boolean hidden = body.containsKey("hidden") ? truthy(body.get("hidden")) : existing.hidden();
         chars.update(id, gen, ch, hidden);
         return chars.findById(id).orElseThrow();
@@ -53,6 +57,10 @@ public class GenerationCharService {
             throw new ApiException(404, "字辈配置不存在");
         }
         chars.delete(id);
+    }
+
+    private static String str(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     /** 宽容转整数：拒绝小数（如 2.5），数字字符串可接受。 */

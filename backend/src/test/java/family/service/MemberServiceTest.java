@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,7 +35,7 @@ class MemberServiceTest {
         GenerationCharRepository chars = new GenerationCharRepository(db);
         chars.insert(25, "问", false);
         chars.insert(26, "好", false);
-        service = new MemberService(members, chars);
+        service = new MemberService(members, chars, db);
     }
 
     private Map<String, Object> body(Object... kv) {
@@ -124,6 +125,59 @@ class MemberServiceTest {
         assertEquals(1, updated.siblingRank(), "与旧版行为一致：PUT 未传排行时按父节点+性别重算");
         assertEquals("子改名", updated.name());
         assertNotNull(updated.updatedAt());
+    }
+
+    @Test
+    @DisplayName("仅改姓名时保留原有排行")
+    void nameOnlyUpdatePreservesRanks() {
+        FamilyMember parent = service.create(admin, body("name", "父", "generation", 25));
+        FamilyMember child = service.create(admin, body("name", "子", "gender", "male", "generation", 26,
+                "parent_id", parent.id(), "sibling_rank", 7, "family_rank", 9));
+        FamilyMember updated = service.update(child.id(), body("name", "子改名"));
+        assertEquals(7, updated.siblingRank());
+        assertEquals(9, updated.familyRank());
+        assertEquals(parent.id(), updated.parentId());
+    }
+
+    @Test
+    @DisplayName("禁止把后代设为父节点")
+    void descendantCannotBecomeParent() {
+        FamilyMember root = service.create(admin, body("name", "根"));
+        FamilyMember child = service.create(admin, body("name", "子", "parent_id", root.id()));
+        FamilyMember grandchild = service.create(admin, body("name", "孙", "parent_id", child.id()));
+        ApiException e = assertThrows(ApiException.class, () -> service.update(root.id(), body("parent_id", grandchild.id())));
+        assertEquals(400, e.status());
+    }
+
+    @Test
+    @DisplayName("非法字段值返回 400")
+    void invalidFieldValuesReturn400() {
+        assertEquals(400, assertThrows(ApiException.class, () -> service.create(admin, body("name", "x", "gender", "unknown"))).status());
+        assertEquals(400, assertThrows(ApiException.class, () -> service.create(admin, body("name", "x", "generation", 0))).status());
+        assertEquals(400, assertThrows(ApiException.class, () -> service.create(admin, body("name", "x", "birth_date", "2020-99-99"))).status());
+        assertEquals(400, assertThrows(ApiException.class, () -> service.create(admin, body("name", null))).status());
+        assertEquals(400, assertThrows(ApiException.class, () -> service.create(admin, body("name", "x", "generation", 1.5))).status());
+        assertEquals(400, assertThrows(ApiException.class, () -> service.create(admin, body("name", "x", "generation", Long.MAX_VALUE))).status());
+        assertEquals(400, assertThrows(ApiException.class, () -> service.create(admin, body("name", "x", "parent_id", Long.MAX_VALUE))).status());
+    }
+
+    @Test
+    @DisplayName("批量创建任一条失败则整批回滚")
+    void batchCreateRollsBackOnFailure() {
+        ApiException e = assertThrows(ApiException.class, () -> service.createBatch(admin, List.of(
+                body("name", "甲"), body("name", " "))));
+        assertEquals(400, e.status());
+        assertTrue(service.list().isEmpty());
+    }
+
+    @Test
+    @DisplayName("批量创建全部成功")
+    void batchCreateCommitsAll() {
+        List<FamilyMember> created = service.createBatch(admin, List.of(
+                body("name", "甲", "generation", 25),
+                body("name", "乙", "generation", 26)));
+        assertEquals(2, created.size());
+        assertEquals(2, service.list().size());
     }
 
     @Test

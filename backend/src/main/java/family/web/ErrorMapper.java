@@ -19,7 +19,7 @@ public class ErrorMapper {
                 ctx.status(413).json(Map.of("error", "图片大小不能超过 20MB"));
                 return;
             }
-            ctx.status(500).json(Map.of("error", msg == null || msg.isEmpty() ? "服务器内部错误" : msg));
+            ctx.status(500).json(Map.of("error", "服务器内部错误"));
         });
     }
 }

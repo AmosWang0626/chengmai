@@ -10,6 +10,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /** SQLite 访问封装：单连接 + synchronized 串行化（轻量场景足够），开启 WAL 与外键。 */
 public class Database {
@@ -82,6 +83,42 @@ public class Database {
     public synchronized long insert(String sql, Object... params) {
         update(sql, params);
         return queryOne("SELECT last_insert_rowid() AS id", rs -> rs.getLong("id")).orElseThrow();
+    }
+
+    /** 在同一连接上执行原子操作，并持有实例锁避免多步检查与写入之间发生竞态。 */
+    public synchronized <T> T inTransaction(Supplier<T> work) {
+        try {
+            conn.setAutoCommit(false);
+            T result = work.get();
+            conn.commit();
+            return result;
+        } catch (RuntimeException e) {
+            rollbackQuietly();
+            throw e;
+        } catch (Exception e) {
+            rollbackQuietly();
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                conn.setAutoCommit(true);
+            } catch (Exception e) {
+                throw new RuntimeException("恢复数据库自动提交失败", e);
+            }
+        }
+    }
+
+    public synchronized void inTransaction(Runnable work) {
+        inTransaction(() -> {
+            work.run();
+            return null;
+        });
+    }
+
+    private void rollbackQuietly() {
+        try {
+            conn.rollback();
+        } catch (Exception ignored) {
+        }
     }
 
     /** 预编译并按序绑定参数（防 SQL 注入）。 */

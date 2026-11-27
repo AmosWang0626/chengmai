@@ -67,14 +67,24 @@ CREATE TABLE IF NOT EXISTS gallery_images (
   approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL  -- 审核人
 );
 
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  target TEXT NOT NULL,
+  detail TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- 自增起点 10000：sqlite_sequence 的行在首次插入后才存在，故先抬下限、再补缺行；
 -- 只抬不降，重复初始化不会让已有库重号。
 UPDATE sqlite_sequence SET seq = 9999
-  WHERE name IN ('users', 'family_members', 'generation_chars', 'gallery_images') AND seq < 9999;
+  WHERE name IN ('users', 'family_members', 'generation_chars', 'gallery_images', 'audit_logs') AND seq < 9999;
 INSERT INTO sqlite_sequence (name, seq)
   SELECT n, 9999 FROM (
     SELECT 'users' AS n UNION ALL SELECT 'family_members'
     UNION ALL SELECT 'generation_chars' UNION ALL SELECT 'gallery_images'
+    UNION ALL SELECT 'audit_logs'
   ) WHERE n NOT IN (SELECT name FROM sqlite_sequence);
 
 -- 内置账号（密码 demo123）：建库即可登录；username 唯一 + OR IGNORE 保证重复初始化不覆盖改密结果

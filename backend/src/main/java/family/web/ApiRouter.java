@@ -1,5 +1,6 @@
 package family.web;
 
+import family.web.controller.AuditController;
 import family.web.controller.AuthController;
 import family.web.controller.GalleryController;
 import family.web.controller.GenerationCharController;
@@ -14,14 +15,16 @@ public class ApiRouter {
     private final GenerationCharController chars;
     private final GalleryController gallery;
     private final UserController users;
+    private final AuditController audit;
 
     public ApiRouter(AuthController auth, MemberController members, GenerationCharController chars,
-                     GalleryController gallery, UserController users) {
+                     GalleryController gallery, UserController users, AuditController audit) {
         this.auth = auth;
         this.members = members;
         this.chars = chars;
         this.gallery = gallery;
         this.users = users;
+        this.audit = audit;
     }
 
     public void register(RoutesConfig routes) {
@@ -30,5 +33,6 @@ public class ApiRouter {
         chars.register(routes);
         gallery.register(routes);
         users.register(routes);
+        audit.register(routes);
     }
 }

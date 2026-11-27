@@ -22,6 +22,9 @@ import java.util.HexFormat;
 
 /** 认证服务：登录、token 校验、改密。jbcrypt 与 Node 版 bcryptjs 哈希互通，JWT 密钥文件两版共用。 */
 public class AuthService {
+    private static final String DEFAULT_PASSWORD_HASH =
+            "$2a$10$nWn8NGDCq0AOGoe8WDgFW.URiqmwKYV4HnsHXeqsqUHKQnSsCTBAS";
+
     /** 登录结果：token + 不含密码哈希的用户视图。 */
     public record LoginResult(String token, UserView user) {
     }
@@ -65,7 +68,19 @@ public class AuthService {
         User user = users.findByUsername(username)
                 .filter(u -> BCrypt.checkpw(password, u.passwordHash()))
                 .orElseThrow(() -> new ApiException(401, "账号或密码错误"));
-        return new LoginResult(signToken(user), UserView.from(user));
+        return new LoginResult(signToken(user), view(user));
+    }
+
+    public UserView view(User user) {
+        return UserView.from(user, requiresPasswordChange(user));
+    }
+
+    public boolean requiresPasswordChange(User user) {
+        return usesDefaultPassword(user);
+    }
+
+    private static boolean usesDefaultPassword(User user) {
+        return DEFAULT_PASSWORD_HASH.equals(user.passwordHash());
     }
 
     /** 解析 Authorization 头并返回当前用户；token 有效但账号已删除同样拒绝（即时失效）。 */
@@ -89,6 +104,9 @@ public class AuthService {
     public void changePassword(User user, String currentPassword, String newPassword) {
         if (newPassword == null || newPassword.length() < 6) {
             throw new ApiException(400, "新密码长度至少6位");
+        }
+        if ("demo123".equals(newPassword)) {
+            throw new ApiException(400, "新密码不能与初始密码相同");
         }
         if (!BCrypt.checkpw(currentPassword == null ? "" : currentPassword, user.passwordHash())) {
             throw new ApiException(400, "当前密码不正确");

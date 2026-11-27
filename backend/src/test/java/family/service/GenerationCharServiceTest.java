@@ -66,6 +66,14 @@ class GenerationCharServiceTest {
     }
 
     @Test
+    @DisplayName("更新字辈为空拒绝")
+    void blankCharUpdateRejected() {
+        GenerationChar c = service.create(27, "中", false);
+        assertEquals(400, assertThrows(ApiException.class, () -> service.update(c.id(), Map.of("char", " "))).status());
+        assertEquals(400, assertThrows(ApiException.class, () -> service.update(c.id(), java.util.Collections.singletonMap("char", null))).status());
+    }
+
+    @Test
     @DisplayName("删除与 404")
     void deleteAndMissingReturns404() {
         GenerationChar c = service.create(27, "中", false);

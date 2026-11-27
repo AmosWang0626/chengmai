@@ -10,10 +10,16 @@ public record UserView(
         String username,
         String fullName,
         Role role,
-        String createdAt) {
+        String createdAt,
+        boolean passwordChangeRequired) {
 
     /** 由实体转换为安全的对外视图。 */
     public static UserView from(User user) {
-        return new UserView(user.id(), user.username(), user.fullName(), user.role(), user.createdAt());
+        return from(user, false);
+    }
+
+    public static UserView from(User user, boolean passwordChangeRequired) {
+        return new UserView(user.id(), user.username(), user.fullName(), user.role(), user.createdAt(),
+                passwordChangeRequired);
     }
 }

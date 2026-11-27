@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { api, onAuthChange } from './api/client';
 import { User } from './types';
-import LoginPage from './pages/LoginPage';
-import DashboardV2 from './pages/DashboardV2';
-import FamilyTree from './pages/FamilyTree';
-import FamilyTreeV2 from './pages/FamilyTreeV2';
-import FamilyTreeCanvas from './pages/FamilyTreeCanvas';
-import MemberList from './pages/MemberList';
-import MemberForm from './pages/MemberForm';
-import SimpleMemberForm from './pages/SimpleMemberForm';
-import BatchMemberForm from './pages/BatchMemberForm';
-import BatchEditMemberForm from './pages/BatchEditMemberForm';
-import AccountManagement from './pages/AccountManagement';
-import GenerationCharManagement from './pages/GenerationCharManagement';
-import Gallery from './pages/Gallery';
 import AdminRoute from './components/AdminRoute';
+import ForcePasswordChange from './components/ForcePasswordChange';
+
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const DashboardV2 = lazy(() => import('./pages/DashboardV2'));
+const FamilyTree = lazy(() => import('./pages/FamilyTree'));
+const FamilyTreeV2 = lazy(() => import('./pages/FamilyTreeV2'));
+const FamilyTreeCanvas = lazy(() => import('./pages/FamilyTreeCanvas'));
+const MemberList = lazy(() => import('./pages/MemberList'));
+const MemberForm = lazy(() => import('./pages/MemberForm'));
+const SimpleMemberForm = lazy(() => import('./pages/SimpleMemberForm'));
+const BatchMemberForm = lazy(() => import('./pages/BatchMemberForm'));
+const BatchEditMemberForm = lazy(() => import('./pages/BatchEditMemberForm'));
+const AccountManagement = lazy(() => import('./pages/AccountManagement'));
+const GenerationCharManagement = lazy(() => import('./pages/GenerationCharManagement'));
+const Gallery = lazy(() => import('./pages/Gallery'));
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -37,9 +39,21 @@ function App() {
     );
   }
 
+  if (user?.password_change_required) {
+    return <ForcePasswordChange username={user.username} />;
+  }
+
   return (
     <HashRouter>
-      <Routes>
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center bg-paper" role="status" aria-live="polite">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cinnabar-600" aria-hidden="true" />
+            <span className="sr-only">页面加载中…</span>
+          </div>
+        }
+      >
+        <Routes>
         <Route
           path="/login"
           element={user ? <Navigate to="/dashboard-v2" /> : <LoginPage />}
@@ -70,19 +84,19 @@ function App() {
         />
         <Route
           path="/members/new"
-          element={user ? <AdminRoute user={user}><SimpleMemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
+          element={user ? <AdminRoute user={user} allowEditor><SimpleMemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
         />
         <Route
           path="/members/batch"
-          element={user ? <AdminRoute user={user}><BatchMemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
+          element={user ? <AdminRoute user={user} allowEditor><BatchMemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
         />
         <Route
           path="/members/batch-edit"
-          element={user ? <AdminRoute user={user}><BatchEditMemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
+          element={user ? <AdminRoute user={user} allowEditor><BatchEditMemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
         />
         <Route
           path="/members/edit/:id"
-          element={user ? <AdminRoute user={user}><MemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
+          element={user ? <AdminRoute user={user} allowEditor><MemberForm user={user} /></AdminRoute> : <Navigate to="/login" />}
         />
         <Route
           path="/accounts"
@@ -90,14 +104,15 @@ function App() {
         />
         <Route
           path="/generation-chars"
-          element={user ? <AdminRoute user={user}><GenerationCharManagement user={user} /></AdminRoute> : <Navigate to="/login" />}
+          element={user ? <AdminRoute user={user} allowEditor><GenerationCharManagement user={user} /></AdminRoute> : <Navigate to="/login" />}
         />
         <Route
           path="/gallery"
           element={user ? <Gallery user={user} /> : <Navigate to="/login" />}
         />
         <Route path="/" element={<Navigate to={user ? "/dashboard-v2" : "/login"} />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </HashRouter>
   );
 }

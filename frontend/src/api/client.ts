@@ -69,6 +69,24 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return data as T;
 }
 
+async function requestBlob(path: string): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+  if (res.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    currentUser = null;
+    notify();
+    throw new Error('登录已过期，请重新登录');
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error((data && data.error) || `请求失败 (${res.status})`);
+  }
+  return res.blob();
+}
+
 export const api = {
   async login(username: string, password: string): Promise<User> {
     const data = await request<{ token: string; user: User }>('/api/auth/login', {
@@ -100,11 +118,16 @@ export const api = {
     }
   },
 
-  changePassword(currentPassword: string, newPassword: string) {
-    return request<{ ok: boolean }>('/api/auth/password', {
+  async changePassword(currentPassword: string, newPassword: string) {
+    const result = await request<{ ok: boolean }>('/api/auth/password', {
       method: 'PUT',
       body: { currentPassword, newPassword },
     });
+    if (currentUser) {
+      currentUser = { ...currentUser, password_change_required: false };
+      notify();
+    }
+    return result;
   },
 
   getMembers() {
@@ -112,6 +135,9 @@ export const api = {
   },
   createMember(data: Partial<FamilyMember>) {
     return request<FamilyMember>('/api/members', { method: 'POST', body: data });
+  },
+  createMembersBatch(data: Partial<FamilyMember>[]) {
+    return request<FamilyMember[]>('/api/members/batch', { method: 'POST', body: data });
   },
   updateMember(id: number, data: Partial<FamilyMember>) {
     return request<FamilyMember>(`/api/members/${id}`, { method: 'PUT', body: data });
@@ -135,6 +161,9 @@ export const api = {
 
   getGallery() {
     return request<GalleryImage[]>('/api/gallery');
+  },
+  getGalleryImage(path: string) {
+    return requestBlob(`/api/gallery/file?path=${encodeURIComponent(path)}`);
   },
   uploadGalleryImage(formData: FormData) {
     return request<GalleryImage>('/api/gallery', { method: 'POST', formData });

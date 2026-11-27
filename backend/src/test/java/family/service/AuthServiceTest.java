@@ -88,11 +88,30 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("schema 默认密码要求改密且改密后标记消失")
+    void defaultPasswordFlagClearsAfterPasswordChange() {
+        Database db = Database.inMemory();
+        Schema.init(db);
+        UserRepository defaultUsers = new UserRepository(db);
+        User defaultUser = defaultUsers.findByUsername("viewer").orElseThrow();
+        AuthService defaultService = new AuthService(defaultUsers, tempDir.resolve(".default-jwt-secret"));
+
+        assertTrue(defaultService.view(defaultUser).passwordChangeRequired());
+        assertTrue(defaultService.login("viewer", "demo123").user().passwordChangeRequired());
+
+        defaultService.changePassword(defaultUser, "demo123", "newpass123");
+        User changedUser = defaultUsers.findById(defaultUser.id()).orElseThrow();
+        assertFalse(defaultService.view(changedUser).passwordChangeRequired());
+        assertFalse(defaultService.login("viewer", "newpass123").user().passwordChangeRequired());
+    }
+
+    @Test
     @DisplayName("改密需验证旧密码")
     void changePasswordRequiresOldPassword() {
         User user = users.findById(uid).orElseThrow();
         assertEquals(400, assertThrows(ApiException.class, () -> service.changePassword(user, "wrong", "newpass123")).status());
         assertEquals(400, assertThrows(ApiException.class, () -> service.changePassword(user, "123456", "123")).status());
+        assertEquals(400, assertThrows(ApiException.class, () -> service.changePassword(user, "123456", "demo123")).status());
         service.changePassword(user, "123456", "newpass123");
         assertEquals(401, assertThrows(ApiException.class, () -> service.login("tester", "123456")).status());
         assertNotNull(service.login("tester", "newpass123").token());

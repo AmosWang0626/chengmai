@@ -6,10 +6,11 @@ import { useUserRole } from '../hooks/useUserRole';
 interface AdminRouteProps {
   user: User | null;
   children: React.ReactNode;
+  allowEditor?: boolean;
 }
 
-export default function AdminRoute({ user, children }: AdminRouteProps) {
-  const { isAdmin, loading } = useUserRole(user?.id);
+export default function AdminRoute({ user, children, allowEditor = false }: AdminRouteProps) {
+  const { isAdmin, canEditContent, loading } = useUserRole(user?.id);
 
   if (loading) {
     return (
@@ -19,7 +20,7 @@ export default function AdminRoute({ user, children }: AdminRouteProps) {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !(allowEditor && canEditContent)) {
     return <Navigate to="/dashboard" replace />;
   }
 

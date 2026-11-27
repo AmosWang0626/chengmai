@@ -24,6 +24,9 @@ public class MemberController {
         routes.post("/api/members", ctx ->
                 ctx.status(201).json(service.create(user(ctx), Json.toMap(ctx.body()))));
 
+        routes.post("/api/members/batch", ctx ->
+                ctx.status(201).json(service.createBatch(user(ctx), Json.toMapList(ctx.body()))));
+
         routes.put("/api/members/{id}", ctx ->
                 ctx.json(service.update(idParam(ctx), Json.toMap(ctx.body()))));
 
