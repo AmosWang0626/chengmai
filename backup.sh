@@ -33,7 +33,15 @@ LOCK_CREATED=1
 
 echo "[备份] 等待在途写入结束…"
 SECONDS=0
-while [ -n "$(find "$WRITERS" -type f -print -quit)" ]; do
+while true; do
+  for marker in "$WRITERS"/*.marker; do
+    [ -f "$marker" ] || continue
+    pid=$(cat "$marker" 2>/dev/null || true)
+    if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+      rm -f "$marker"
+    fi
+  done
+  [ -z "$(find "$WRITERS" -type f -print -quit)" ] && break
   if [ "$SECONDS" -ge 120 ]; then
     echo "等待写入超时，请检查 data/.writers 和运行中的后端进程" >&2
     exit 1

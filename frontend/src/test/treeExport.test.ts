@@ -183,7 +183,7 @@ describe('buildTreeSvg', () => {
       member(4, '次子', 1, 2),
     ];
     const result = buildTreeSvg(options({ mode: 'fan', members: data, rootMemberId: 1 }));
-    expect(result.height).toBeGreaterThan(result.width);
+    expect(result.width).toBeGreaterThan(result.height);
     expect(result.body).toContain('data-fan-root="true"');
     expect(result.body).toContain('data-fan-member="2"');
     expect(result.body).toContain('data-fan-spouse-ring="1"');
@@ -208,6 +208,16 @@ describe('buildTreeSvg', () => {
     expect(svg.querySelectorAll('[data-fan-label]')).toHaveLength(children.length);
     expect(result.body).toContain('data-fan-label="2"');
     expect(result.body).not.toContain('data-fan-external-label="member-2"');
+  });
+
+  it('uses a compact canvas when all fan labels fit inside arcs', () => {
+    const data = [members[0], members[1], members[3]];
+    const result = buildTreeSvg(options({ mode: 'fan', members: data, rootMemberId: 1, showSpouse: false }));
+
+    expect(result.body).not.toContain('data-fan-external-label=');
+    expect(result.width).toBeLessThan(500);
+    expect(result.body).toContain('data-fan-label="2"');
+    expect(result.body).toContain('data-fan-label="4"');
   });
 
   it('exports fan members and labels without guide circles, frames or leader lines', () => {

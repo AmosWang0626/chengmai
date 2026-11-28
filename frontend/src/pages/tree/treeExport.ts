@@ -379,11 +379,6 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
   walk(root, -Math.PI / 2, -Math.PI / 2 + TAU, 0);
 
   const outerR = innerR + maxDepth * pitch + (options.showSpouse ? band + gap : 0);
-  const heading = header(options, 2 * (outerR + 230));
-  const size = 2 * (outerR + 230);
-  const cx = size / 2;
-  const cy = heading.height + size / 2;
-  const baseLegendY = cy + size / 2 + 26;
   const ring = (depth: number) => ({
     ri: innerR + (depth - 1) * pitch,
     ro: innerR + (depth - 1) * pitch + ringW,
@@ -392,7 +387,7 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
     ? { ri: innerR - band - 7, ro: innerR - 7 }
     : { ri: ring(depth).ro + 3, ro: ring(depth).ro + 3 + band };
 
-  const internalLabels: string[] = [];
+  const internalLabelPlans: Array<{ id: number; angle: number; radius: number; size: number; text: string; spouse: boolean }> = [];
   const externalLabels: FanLabel[] = [];
   const addExternal = (key: string, name: string, detail: string, angle: number, radius: number, spouse: boolean): void => {
     externalLabels.push({ key, text: name, detail, angle, outer: radius, spouse });
@@ -411,9 +406,7 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
     const nameUnits = Math.max(1, textUnits(node.name));
     const labelSize = Math.min(16, (ro - ri - 8) / nameUnits, arcWidth / 1.4);
     if (labelSize >= 7) {
-      let degrees = midAngle * 180 / Math.PI;
-      if (Math.cos(midAngle) < 0) degrees += 180;
-      internalLabels.push(`<text data-fan-label="${xml(String(node.id))}" x="${num(cx + midRadius * Math.cos(midAngle))}" y="${num(cy + midRadius * Math.sin(midAngle))}" transform="rotate(${num(degrees)} ${num(cx + midRadius * Math.cos(midAngle))} ${num(cy + midRadius * Math.sin(midAngle))})" text-anchor="middle" dominant-baseline="middle" font-size="${num(labelSize)}" fill="${INK}">${xml(node.name)}</text>`);
+      internalLabelPlans.push({ id: node.id, angle: midAngle, radius: midRadius, size: labelSize, text: node.name, spouse: false });
     } else {
       addExternal(`member-${node.id}`, `${node.name}${char ? ` · ${char}` : ''}`, detail, midAngle, ro, false);
     }
@@ -429,22 +422,30 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
       ? [years(node.spouse_birth_date, node.spouse_death_date), node.spouse_origin || '', node.notes || ''].filter(Boolean).join(' · ')
       : '';
     if (spouseBand.depth > 0 && (spouseBand.a1 - spouseBand.a0) * midRadius >= textUnits(name) * 11) {
-      let degrees = midAngle * 180 / Math.PI + 90;
-      if (Math.cos(midAngle) < 0) degrees += 180;
-      internalLabels.push(`<text data-fan-label="${xml(String(node.id))}" x="${num(cx + midRadius * Math.cos(midAngle))}" y="${num(cy + midRadius * Math.sin(midAngle))}" transform="rotate(${num(degrees)} ${num(cx + midRadius * Math.cos(midAngle))} ${num(cy + midRadius * Math.sin(midAngle))})" text-anchor="middle" dominant-baseline="middle" font-size="11" fill="#9A2E1E">${xml(name)}</text>`);
+      internalLabelPlans.push({ id: node.id, angle: midAngle, radius: midRadius, size: 11, text: name, spouse: true });
     } else if (spouseBand.depth > 0) {
       addExternal(`spouse-${node.id}`, name, detail, midAngle, ro, true);
     }
   }
 
   const labelWidth = 210;
-  const labelX = outerR + 48;
-  const minLabelY = heading.height + 22;
   const wrappedLabels = externalLabels.map(label => ({
     ...label,
     nameLines: wrapText(label.text, labelWidth / 13),
     detailLines: label.detail ? wrapText(label.detail, labelWidth / 10) : [],
   }));
+  const maxLabelWidth = Math.max(0, ...wrappedLabels.flatMap(label => [
+    ...label.nameLines.map(line => textUnits(line) * 13),
+    ...label.detailLines.map(line => textUnits(line) * 10),
+  ]));
+  const sideMargin = wrappedLabels.length ? 48 + Math.min(labelWidth, maxLabelWidth) + 24 : 48;
+  const size = 2 * (outerR + sideMargin);
+  const heading = header(options, size);
+  const cx = size / 2;
+  const cy = heading.height + 48 + outerR;
+  const baseLegendY = cy + outerR + 32;
+  const labelX = outerR + 48;
+  const minLabelY = heading.height + 22;
   const labelRowHeight = Math.max(24, ...wrappedLabels.map(label =>
     label.nameLines.length * 15 + (label.detailLines.length ? label.detailLines.length * 12 + 5 : 0) + 10));
   const maxSideLabels = Math.max(...[1, -1].map(side => wrappedLabels.filter(label =>
@@ -452,6 +453,13 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
   const legendY = Math.max(baseLegendY, minLabelY + maxSideLabels * labelRowHeight + 20);
   const height = legendY + 52;
   const maxLabelY = legendY - 20;
+  const internalLabels = internalLabelPlans.map(plan => {
+    let degrees = plan.angle * 180 / Math.PI + (plan.spouse ? 90 : 0);
+    if (Math.cos(plan.angle) < 0) degrees += 180;
+    const x = cx + plan.radius * Math.cos(plan.angle);
+    const y = cy + plan.radius * Math.sin(plan.angle);
+    return `<text data-fan-label="${xml(String(plan.id))}" x="${num(x)}" y="${num(y)}" transform="rotate(${num(degrees)} ${num(x)} ${num(y)})" text-anchor="middle" dominant-baseline="middle" font-size="${num(plan.size)}" fill="${plan.spouse ? '#9A2E1E' : INK}">${xml(plan.text)}</text>`;
+  });
   const externalMarkup: string[] = [];
   for (const side of [1, -1]) {
     const labels = wrappedLabels

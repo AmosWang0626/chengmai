@@ -21,6 +21,29 @@ public class WriteGate {
 
     public WriteGate(Path dataDir) {
         this.dataDir = dataDir.toAbsolutePath().normalize();
+        clearDeadWriterMarkers();
+    }
+
+    /** 启动时清理已退出进程遗留的写入标记，避免在线备份无限等待。 */
+    private void clearDeadWriterMarkers() {
+        Path writers = this.dataDir.resolve(".writers");
+        if (!Files.isDirectory(writers)) return;
+        try (var entries = Files.list(writers)) {
+            entries.filter(path -> path.getFileName().toString().endsWith(".marker")).forEach(path -> {
+                try {
+                    String pid = Files.readString(path).trim();
+                    boolean alive = ProcessHandle.of(Long.parseLong(pid)).isPresent();
+                    if (!alive) Files.deleteIfExists(path);
+                } catch (Exception e) {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (Exception ignored) {
+                    }
+                }
+            });
+        } catch (Exception e) {
+            throw new RuntimeException("清理写入标记失败", e);
+        }
     }
 
     public void register(RoutesConfig routes) {
