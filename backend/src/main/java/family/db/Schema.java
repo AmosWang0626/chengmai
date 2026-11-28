@@ -20,8 +20,19 @@ public class Schema {
                     db.execute(statement);
                 }
             }
+            addColumnIfMissing(db, "family_members", "birth_calendar", "TEXT NOT NULL DEFAULT 'solar'");
+            addColumnIfMissing(db, "family_members", "birth_lunar_leap", "INTEGER NOT NULL DEFAULT 0");
+            addColumnIfMissing(db, "family_members", "spouse_birth_calendar", "TEXT NOT NULL DEFAULT 'solar'");
+            addColumnIfMissing(db, "family_members", "spouse_lunar_leap", "INTEGER NOT NULL DEFAULT 0");
         } catch (Exception e) {
             throw new RuntimeException("建表失败", e);
+        }
+    }
+
+    private static void addColumnIfMissing(Database db, String table, String column, String definition) {
+        boolean exists = db.query("PRAGMA table_info(" + table + ")", rs -> rs.getString("name")).contains(column);
+        if (!exists) {
+            db.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
         }
     }
 }

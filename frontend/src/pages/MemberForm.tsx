@@ -10,6 +10,8 @@ const emptyForm = (generation: number, generationChar: string): MemberFormData =
   name: '',
   gender: '',
   birth_date: '',
+  birth_calendar: 'solar',
+  birth_lunar_leap: 0,
   death_date: '',
   phone: '',
   email: '',
@@ -22,6 +24,8 @@ const emptyForm = (generation: number, generationChar: string): MemberFormData =
   spouse_name: '',
   spouse_origin: '',
   spouse_birth_date: '',
+  spouse_birth_calendar: 'solar',
+  spouse_lunar_leap: 0,
   spouse_death_date: '',
   generation,
   generation_char: generationChar,
@@ -72,6 +76,8 @@ export default function MemberForm({ user }: { user: User | null }) {
       name: member.name,
       gender: member.gender || '',
       birth_date: member.birth_date || '',
+      birth_calendar: member.birth_calendar || 'solar',
+      birth_lunar_leap: member.birth_lunar_leap || 0,
       death_date: member.death_date || '',
       phone: member.phone || '',
       email: member.email || '',
@@ -84,6 +90,8 @@ export default function MemberForm({ user }: { user: User | null }) {
       spouse_name: member.spouse_name || '',
       spouse_origin: member.spouse_origin || '',
       spouse_birth_date: member.spouse_birth_date || '',
+      spouse_birth_calendar: member.spouse_birth_calendar || 'solar',
+      spouse_lunar_leap: member.spouse_lunar_leap || 0,
       spouse_death_date: member.spouse_death_date || '',
       generation: member.generation || maxGeneration,
       generation_char: member.generation_char || '',
@@ -121,6 +129,8 @@ export default function MemberForm({ user }: { user: User | null }) {
       name: formData.name.trim(),
       gender: formData.gender || null,
       birth_date: formData.birth_date || null,
+      birth_calendar: formData.birth_calendar,
+      birth_lunar_leap: formData.birth_lunar_leap,
       death_date: formData.death_date || null,
       phone: formData.phone.trim() || null,
       email: formData.email.trim() || null,
@@ -133,6 +143,8 @@ export default function MemberForm({ user }: { user: User | null }) {
       spouse_name: formData.spouse_name.trim() || null,
       spouse_origin: formData.spouse_origin.trim() || null,
       spouse_birth_date: formData.spouse_birth_date || null,
+      spouse_birth_calendar: formData.spouse_birth_calendar,
+      spouse_lunar_leap: formData.spouse_lunar_leap,
       spouse_death_date: formData.spouse_death_date || null,
       generation: formData.generation,
       sibling_rank: formData.sibling_rank,
@@ -251,7 +263,16 @@ export default function MemberForm({ user }: { user: User | null }) {
                 <>
                   <div>
                     <label className={labelClass}><Calendar className="w-4 h-4 inline mr-1" />出生日期</label>
-                    <DateInput value={formData.birth_date} onChange={value => setFormData({ ...formData, birth_date: value })} className={inputClass} ariaLabel="出生日期" />
+                    <DateInput
+                      value={formData.birth_date}
+                      onChange={value => setFormData({ ...formData, birth_date: value })}
+                      calendar={formData.birth_calendar}
+                      onCalendarChange={birth_calendar => setFormData({ ...formData, birth_calendar })}
+                      leap={Boolean(formData.birth_lunar_leap)}
+                      onLeapChange={leap => setFormData({ ...formData, birth_lunar_leap: leap ? 1 : 0 })}
+                      className={inputClass}
+                      ariaLabel="出生日期"
+                    />
                   </div>
                   <div>
                     <label className={labelClass}><Calendar className="w-4 h-4 inline mr-1" />逝世日期</label>
@@ -264,7 +285,16 @@ export default function MemberForm({ user }: { user: User | null }) {
                   </div>
                   <div>
                     <label className={labelClass}><Calendar className="w-4 h-4 inline mr-1" />配偶出生日期</label>
-                    <DateInput value={formData.spouse_birth_date} onChange={value => setFormData({ ...formData, spouse_birth_date: value })} className={inputClass} ariaLabel="配偶出生日期" />
+                    <DateInput
+                      value={formData.spouse_birth_date}
+                      onChange={value => setFormData({ ...formData, spouse_birth_date: value })}
+                      calendar={formData.spouse_birth_calendar}
+                      onCalendarChange={spouse_birth_calendar => setFormData({ ...formData, spouse_birth_calendar })}
+                      leap={Boolean(formData.spouse_lunar_leap)}
+                      onLeapChange={leap => setFormData({ ...formData, spouse_lunar_leap: leap ? 1 : 0 })}
+                      className={inputClass}
+                      ariaLabel="配偶出生日期"
+                    />
                   </div>
                   <div>
                     <label className={labelClass}><Calendar className="w-4 h-4 inline mr-1" />配偶逝世日期</label>

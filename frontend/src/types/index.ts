@@ -13,6 +13,8 @@ export interface FamilyMember {
   name: string;
   gender: 'male' | 'female' | 'other' | null;
   birth_date: string | null;
+  birth_calendar?: 'solar' | 'lunar' | null;
+  birth_lunar_leap?: number | null;
   death_date: string | null;
   phone: string | null;
   email: string | null;
@@ -26,6 +28,8 @@ export interface FamilyMember {
   spouse_name: string | null;
   spouse_origin: string | null;
   spouse_birth_date: string | null;
+  spouse_birth_calendar?: 'solar' | 'lunar' | null;
+  spouse_lunar_leap?: number | null;
   spouse_death_date: string | null;
   generation: number | null;
   generation_char: string | null;
@@ -52,6 +56,8 @@ export interface MemberFormData {
   name: string;
   gender: 'male' | 'female' | 'other' | '';
   birth_date: string;
+  birth_calendar: 'solar' | 'lunar';
+  birth_lunar_leap: number;
   death_date: string;
   phone: string;
   email: string;
@@ -63,6 +69,8 @@ export interface MemberFormData {
   spouse_name: string;
   spouse_origin: string;
   spouse_birth_date: string;
+  spouse_birth_calendar: 'solar' | 'lunar';
+  spouse_lunar_leap: number;
   spouse_death_date: string;
   notes: string;
   generation: number;

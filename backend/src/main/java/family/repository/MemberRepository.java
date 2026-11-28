@@ -23,6 +23,8 @@ public class MemberRepository {
             rs.getString("name"),
             rs.getString("gender"),
             rs.getString("birth_date"),
+            rs.getString("birth_calendar"),
+            (Integer) rs.getObject("birth_lunar_leap"),
             rs.getString("death_date"),
             rs.getString("phone"),
             rs.getString("email"),
@@ -39,6 +41,8 @@ public class MemberRepository {
             rs.getString("spouse_name"),
             rs.getString("spouse_origin"),
             rs.getString("spouse_birth_date"),
+            rs.getString("spouse_birth_calendar"),
+            (Integer) rs.getObject("spouse_lunar_leap"),
             rs.getString("spouse_death_date"),
             rs.getString("notes"),
             rs.getString("created_at"),
@@ -46,10 +50,10 @@ public class MemberRepository {
 
     /** 允许更新的列白名单：动态拼 SET 子句前校验，防止注入任意列名。 */
     private static final Set<String> UPDATABLE = Set.of(
-            "name", "gender", "birth_date", "death_date", "phone", "email", "address",
+            "name", "gender", "birth_date", "birth_calendar", "birth_lunar_leap", "death_date", "phone", "email", "address",
             "occupation", "education", "bio", "avatar_url", "parent_id", "generation",
             "generation_char", "sibling_rank", "family_rank", "spouse_name", "spouse_origin",
-            "spouse_birth_date", "spouse_death_date", "notes", "updated_at");
+            "spouse_birth_date", "spouse_birth_calendar", "spouse_lunar_leap", "spouse_death_date", "notes", "updated_at");
 
     private final Database db;
 
@@ -89,13 +93,13 @@ public class MemberRepository {
 
     /** 插入成员并返回自增 id；generation 缺省按 1 处理（COALESCE），时间戳走数据库默认值。 */
     public long insert(FamilyMember m) {
-        return db.insert("INSERT INTO family_members (user_id, name, gender, birth_date, death_date, phone, email, address," +
+        return db.insert("INSERT INTO family_members (user_id, name, gender, birth_date, birth_calendar, birth_lunar_leap, death_date, phone, email, address," +
                         " occupation, education, bio, avatar_url, parent_id, generation, generation_char, sibling_rank, family_rank," +
-                        " spouse_name, spouse_origin, spouse_birth_date, spouse_death_date, notes)" +
-                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 1), ?, ?, ?, ?, ?, ?, ?, ?)",
-                m.userId(), m.name(), m.gender(), m.birthDate(), m.deathDate(), m.phone(), m.email(), m.address(),
+                        " spouse_name, spouse_origin, spouse_birth_date, spouse_birth_calendar, spouse_lunar_leap, spouse_death_date, notes)" +
+                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 1), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                m.userId(), m.name(), m.gender(), m.birthDate(), m.birthCalendar(), m.birthLunarLeap(), m.deathDate(), m.phone(), m.email(), m.address(),
                 m.occupation(), m.education(), m.bio(), m.avatarUrl(), m.parentId(), m.generation(), m.generationChar(),
-                m.siblingRank(), m.familyRank(), m.spouseName(), m.spouseOrigin(), m.spouseBirthDate(), m.spouseDeathDate(), m.notes());
+                m.siblingRank(), m.familyRank(), m.spouseName(), m.spouseOrigin(), m.spouseBirthDate(), m.spouseBirthCalendar(), m.spouseLunarLeap(), m.spouseDeathDate(), m.notes());
     }
 
     /** 按传入字段动态更新（部分更新语义）；字段名必须在白名单内，否则抛异常。 */

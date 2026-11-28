@@ -30,6 +30,8 @@ describe('SiblingOrderControl', () => {
 
     expect(screen.getAllByRole('listitem')).toHaveLength(4);
     fireEvent.click(screen.getByRole('button', { name: '上移 成员4' }));
+    expect(onReorder).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '保存顺序' }));
 
     await waitFor(() => expect(onReorder).toHaveBeenCalledWith(2, [1, 2, 4, 3]));
     expect(screen.getAllByRole('listitem').map(item => item.textContent)).toEqual([
@@ -44,6 +46,7 @@ describe('SiblingOrderControl', () => {
     ]} />);
 
     fireEvent.click(screen.getByRole('button', { name: '下移 成员1' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存顺序' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('排序保存失败');
     expect(screen.getAllByRole('listitem').map(item => item.textContent)).toEqual([
@@ -61,8 +64,27 @@ describe('SiblingOrderControl', () => {
     fireEvent.dragStart(items[0]);
     fireEvent.dragOver(items[2]);
     fireEvent.drop(items[2]);
+    fireEvent.click(screen.getByRole('button', { name: '保存顺序' }));
 
     await waitFor(() => expect(onReorder).toHaveBeenCalledWith(2, [2, 3, 1]));
+  });
+
+  it('sorts by converted birthday locally and only persists after manual save', async () => {
+    const onReorder = vi.fn().mockResolvedValue([]);
+    render(<SiblingOrderControl generation={2} onReorder={onReorder} members={[
+      { ...member(1, 10, 1), birth_date: '1900-02-01', birth_calendar: 'solar' },
+      { ...member(2, 10, 2), birth_date: '1900-01-01', birth_calendar: 'lunar' },
+      member(3, 10, 3),
+    ]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '按生日排序' }));
+    expect(onReorder).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('listitem').map(item => item.textContent)).toEqual([
+      '1. 成员2', '2. 成员1', '3. 成员3',
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: '保存顺序' }));
+
+    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(2, [2, 1, 3]));
   });
 
   it('hides controls for groups with fewer than two siblings', () => {

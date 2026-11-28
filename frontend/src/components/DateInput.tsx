@@ -1,5 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Calendar, X } from 'lucide-react';
+import { LunarYear, Solar } from 'lunar-typescript';
+import {
+  LUNAR_DAY_NAMES,
+  LUNAR_MONTH_NAMES,
+  lunarToSolar,
+  normalizeCalendarDate,
+  parseDateParts,
+  solarToLunar,
+} from '../utils/calendar';
+import type { CalendarType } from '../utils/calendar';
 
 interface DateInputProps {
   value: string;
@@ -7,30 +17,31 @@ interface DateInputProps {
   className?: string;
   placeholder?: string;
   ariaLabel?: string;
+  calendar?: CalendarType;
+  onCalendarChange?: (calendar: CalendarType) => void;
+  leap?: boolean;
+  onLeapChange?: (leap: boolean) => void;
+  disabled?: boolean;
 }
 
-const pad = (value: number, length = 2) => String(value).padStart(length, '0');
-
-const normalizeDate = (input: string): string | null => {
-  const parts = input.trim().replace(/[./年月]/g, '-').replace(/日/g, '').split('-');
-  if (parts.length !== 3 || parts.some(part => !/^\d+$/.test(part))) return null;
-  const year = Number(parts[0]);
-  const month = Number(parts[1]);
-  const day = Number(parts[2]);
-  if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
-  return `${pad(year, 4)}-${pad(month)}-${pad(day)}`;
-};
-
 const splitDate = (value: string): [string, string, string] => {
-  const normalized = normalizeDate(value);
-  if (!normalized) return ['', '', ''];
-  const [year, month, day] = normalized.split('-');
-  return [String(Number(year)), String(Number(month)), String(Number(day))];
+  const parts = parseDateParts(value);
+  if (!parts) return ['', '', ''];
+  return [String(parts.year), String(parts.month), String(parts.day)];
 };
 
-const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = '', placeholder = 'YYYY-MM-DD', ariaLabel }) => {
+const DateInput: React.FC<DateInputProps> = ({
+  value,
+  onChange,
+  className = '',
+  placeholder,
+  ariaLabel,
+  calendar = 'solar',
+  onCalendarChange,
+  leap = false,
+  onLeapChange,
+  disabled = false,
+}) => {
   const [text, setText] = useState(value);
   const [invalid, setInvalid] = useState(false);
   const [open, setOpen] = useState(false);
@@ -38,6 +49,7 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = '', 
   const [month, setMonth] = useState('');
   const [day, setDay] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
+  const lunar = calendar === 'lunar';
 
   useEffect(() => {
     setText(value);
@@ -69,13 +81,24 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = '', 
   };
 
   const commitText = () => {
-    if (!text.trim()) {
+    const raw = text.trim();
+    if (!raw) {
       onChange('');
       setInvalid(false);
       return;
     }
-    const normalized = normalizeDate(text);
+    let targetCalendar = calendar;
+    let cleaned = raw;
+    if (/^(农历|阴历)/.test(raw)) {
+      targetCalendar = 'lunar';
+      cleaned = raw.replace(/^(农历|阴历)/, '');
+    } else if (/^(阳历|公历)/.test(raw)) {
+      targetCalendar = 'solar';
+      cleaned = raw.replace(/^(阳历|公历)/, '');
+    }
+    const normalized = normalizeCalendarDate(cleaned, targetCalendar);
     if (normalized) {
+      if (targetCalendar !== calendar) onCalendarChange?.(targetCalendar);
       onChange(normalized);
       setInvalid(false);
     } else {
@@ -84,19 +107,56 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = '', 
     }
   };
 
-  const daysInMonth = year && month ? new Date(Number(year), Number(month), 0).getDate() : 31;
-  const canConfirm = Boolean(normalizeDate(`${year}-${month}-${day}`));
+  const switchCalendar = (next: CalendarType) => {
+    if (next === calendar) return;
+    const parts = parseDateParts(value);
+    if (parts) {
+      if (next === 'lunar') {
+        const converted = solarToLunar(value);
+        if (converted) {
+          onChange(converted.date);
+          onLeapChange?.(converted.leap);
+        }
+      } else {
+        const converted = lunarToSolar(value, leap);
+        if (converted) onChange(converted);
+        onLeapChange?.(false);
+      }
+    }
+    onCalendarChange?.(next);
+  };
+
+  const leapMonth = year ? LunarYear.fromYear(Number(year)).getLeapMonth() : 0;
+  const daysInMonth = lunar ? 30 : year && month ? new Date(Number(year), Number(month), 0).getDate() : 31;
+  const canConfirm = Boolean(normalizeCalendarDate(`${year}-${month}-${day}`, calendar));
   const confirm = () => {
-    const normalized = normalizeDate(`${year}-${month}-${day}`);
+    const normalized = normalizeCalendarDate(`${year}-${month}-${day}`, calendar);
     if (!normalized) return;
     onChange(normalized);
     setOpen(false);
   };
   const today = () => {
     const now = new Date();
-    setYear(String(now.getFullYear()));
-    setMonth(String(now.getMonth() + 1));
-    setDay(String(now.getDate()));
+    if (lunar) {
+      const current = Solar.fromYmd(now.getFullYear(), now.getMonth() + 1, now.getDate()).getLunar();
+      setYear(String(current.getYear()));
+      setMonth(String(Math.abs(current.getMonth())));
+      setDay(String(current.getDay()));
+      onLeapChange?.(current.getMonth() < 0);
+    } else {
+      setYear(String(now.getFullYear()));
+      setMonth(String(now.getMonth() + 1));
+      setDay(String(now.getDate()));
+    }
+  };
+  const selectMonth = (raw: string) => {
+    if (raw.startsWith('leap-')) {
+      setMonth(raw.slice(5));
+      onLeapChange?.(true);
+    } else {
+      setMonth(raw);
+      onLeapChange?.(false);
+    }
   };
 
   return (
@@ -107,8 +167,9 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = '', 
         value={text}
         aria-label={ariaLabel}
         aria-invalid={invalid || undefined}
-        placeholder={placeholder}
+        placeholder={placeholder || (lunar ? '农历 YYYY-MM-DD' : 'YYYY-MM-DD')}
         className={`${className} pr-9`}
+        disabled={disabled}
         onChange={event => { setText(event.target.value); setInvalid(false); }}
         onBlur={commitText}
         onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitText(); } }}
@@ -117,14 +178,29 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = '', 
         type="button"
         className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cinnabar-600"
         aria-label={`选择${ariaLabel || '日期'}`}
+        disabled={disabled}
         onClick={() => (open ? setOpen(false) : openPicker())}
       >
         <Calendar className="h-4 w-4" />
       </button>
-      {invalid && <p className="mt-1 text-xs text-red-600">日期格式应为 YYYY-MM-DD</p>}
+      {invalid && <p className="mt-1 text-xs text-red-600">{lunar ? '农历日期应为 YYYY-MM-DD，月 1-12、日 1-30' : '日期格式应为 YYYY-MM-DD'}</p>}
       {open && (
-        <div role="dialog" aria-label={`${ariaLabel || '日期'}选择`} className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
-          <div className="grid grid-cols-[1fr_72px_72px] gap-2">
+        <div role="dialog" aria-label={`${ariaLabel || '日期'}选择`} className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
+          {onCalendarChange && (
+            <div className="mb-2 flex gap-1" role="group" aria-label="历法">
+              {(['solar', 'lunar'] as const).map(item => (
+                <button
+                  key={item}
+                  type="button"
+                  className={`flex-1 rounded px-2 py-1 text-xs ${calendar === item ? 'bg-cinnabar-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  onClick={() => switchCalendar(item)}
+                >
+                  {item === 'solar' ? '阳历' : '阴历'}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-[1fr_84px_84px] gap-2">
             <label className="block">
               <span className="mb-1 block text-xs text-slate-500">年</span>
               <input
@@ -140,16 +216,26 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = '', 
             </label>
             <label className="block">
               <span className="mb-1 block text-xs text-slate-500">月</span>
-              <select value={month} aria-label="月" className="ui-input w-full text-sm" onChange={event => setMonth(event.target.value)}>
+              <select
+                value={lunar && leap ? `leap-${month}` : month}
+                aria-label="月"
+                className="ui-input w-full text-sm"
+                onChange={event => selectMonth(event.target.value)}
+              >
                 <option value="">—</option>
-                {Array.from({ length: 12 }, (_, index) => index + 1).map(item => <option key={item} value={item}>{item}</option>)}
+                {Array.from({ length: 12 }, (_, index) => index + 1).map(item => (
+                  <option key={item} value={item}>{lunar ? LUNAR_MONTH_NAMES[item - 1] : item}</option>
+                ))}
+                {lunar && leapMonth > 0 && <option value={`leap-${leapMonth}`}>闰{LUNAR_MONTH_NAMES[leapMonth - 1]}</option>}
               </select>
             </label>
             <label className="block">
               <span className="mb-1 block text-xs text-slate-500">日</span>
               <select value={day} aria-label="日" className="ui-input w-full text-sm" onChange={event => setDay(event.target.value)}>
                 <option value="">—</option>
-                {Array.from({ length: daysInMonth }, (_, index) => index + 1).map(item => <option key={item} value={item}>{item}</option>)}
+                {Array.from({ length: daysInMonth }, (_, index) => index + 1).map(item => (
+                  <option key={item} value={item}>{lunar ? LUNAR_DAY_NAMES[item - 1] : item}</option>
+                ))}
               </select>
             </label>
           </div>

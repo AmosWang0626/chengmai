@@ -5,6 +5,7 @@ import { ArrowLeft, Save, Edit3, CheckSquare, Square } from 'lucide-react';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
 import { motion } from 'framer-motion';
 import { ROUTES } from '../routes';
+import DateInput from '../components/DateInput';
 
 interface BatchEditMemberFormProps {
   user: User | null;
@@ -18,6 +19,9 @@ interface EditableMember {
   generation_char: string;
   parent_id: string;
   spouse_name: string;
+  birth_date: string;
+  birth_calendar: 'solar' | 'lunar';
+  birth_lunar_leap: number;
   sibling_rank: number;
   family_rank: number;
   selected: boolean;
@@ -45,6 +49,9 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
         generation_char: m.generation_char || '',
         parent_id: m.parent_id != null ? String(m.parent_id) : '',
         spouse_name: m.spouse_name || '',
+        birth_date: m.birth_date || '',
+        birth_calendar: m.birth_calendar || 'solar',
+        birth_lunar_leap: m.birth_lunar_leap || 0,
         sibling_rank: m.sibling_rank || 1,
         family_rank: m.family_rank || 1,
         selected: false
@@ -109,6 +116,9 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
         generation_char: getGenerationChar(member.generation),
         parent_id: member.parent_id ? Number(member.parent_id) : null,
         spouse_name: member.spouse_name.trim() || null,
+        birth_date: member.birth_date || null,
+        birth_calendar: member.birth_calendar,
+        birth_lunar_leap: member.birth_lunar_leap,
         sibling_rank: member.sibling_rank,
         family_rank: member.family_rank,
       }));
@@ -209,6 +219,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                       <button
                         type="button"
                         onClick={toggleSelectAll}
+                        aria-label="全选当前筛选结果"
                         className="p-1 hover:bg-slate-200 rounded transition-colors"
                       >
                         {filteredMembers.length > 0 && filteredMembers.every(m => m.selected) ? (
@@ -225,6 +236,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                     <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-20">同辈顺序</th>
                     <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-40">父母</th>
                     <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-32">配偶名字</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-56">生日</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -237,6 +249,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                         <button
                           type="button"
                           onClick={() => toggleSelect(member.id)}
+                          aria-label={`选择 ${member.name}`}
                           className="p-1 hover:bg-slate-200 rounded transition-colors"
                         >
                           {member.selected ? (
@@ -335,6 +348,19 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           disabled={!member.selected}
                           className={`${inputClass} ${!member.selected ? 'bg-slate-100 text-slate-400' : ''}`}
                           placeholder="配偶名字"
+                        />
+                      </td>
+                      <td data-label="生日" className="px-3 py-3">
+                        <DateInput
+                          value={member.birth_date}
+                          onChange={value => updateField(member.id, 'birth_date', value)}
+                          calendar={member.birth_calendar}
+                          onCalendarChange={calendar => updateField(member.id, 'birth_calendar', calendar)}
+                          leap={Boolean(member.birth_lunar_leap)}
+                          onLeapChange={leap => updateField(member.id, 'birth_lunar_leap', leap ? 1 : 0)}
+                          disabled={!member.selected}
+                          className={`${inputClass} ${!member.selected ? 'bg-slate-100 text-slate-400' : ''}`}
+                          ariaLabel={`生日 ${member.name}`}
                         />
                       </td>
                     </tr>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
+import { ArrowDown, ArrowUp, CalendarDays, GripVertical, Save } from 'lucide-react';
 import type { FamilyMember } from '../types';
+import { birthTimestamp } from '../utils/calendar';
 
 interface SiblingOrderControlProps {
   members: FamilyMember[];
@@ -8,22 +9,31 @@ interface SiblingOrderControlProps {
   onReorder: (generation: number, memberIds: number[]) => Promise<unknown>;
 }
 
+const sameOrder = (a: FamilyMember[], b: FamilyMember[]) =>
+  a.length === b.length && a.every((member, index) => member.id === b[index].id);
+
 export default function SiblingOrderControl({ members, generation, onReorder }: SiblingOrderControlProps) {
   const peers = useMemo(() => members
     .filter(member => member.generation === generation)
     .sort((a, b) => (a.family_rank || 0) - (b.family_rank || 0) || a.id - b.id),
   [members, generation]);
   const [order, setOrder] = useState<FamilyMember[]>(peers);
+  const [baseline, setBaseline] = useState<FamilyMember[]>(peers);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const peerIds = peers.map(member => member.id).join(',');
   const knownPeerIds = useRef(peerIds);
+  const dirty = !sameOrder(order, baseline);
+  const hasBirthday = order.some(member => member.birth_date);
 
   useEffect(() => {
     if (peerIds === knownPeerIds.current) return;
     knownPeerIds.current = peerIds;
-    if (!saving && draggingId === null) setOrder(peers);
+    if (!saving && draggingId === null) {
+      setOrder(peers);
+      setBaseline(peers);
+    }
   }, [peerIds, peers, saving, draggingId]);
 
   const move = (id: number, offset: number) => {
@@ -33,19 +43,32 @@ export default function SiblingOrderControl({ members, generation, onReorder }: 
     const next = [...order];
     const [member] = next.splice(from, 1);
     next.splice(to, 0, member);
-    void save(next);
+    setOrder(next);
   };
 
-  const save = async (next: FamilyMember[]) => {
-    if (generation === null) return;
-    const previous = order;
+  const sortByBirthday = () => {
+    const next = order
+      .map((member, index) => ({ member, index, key: birthTimestamp(member) }))
+      .sort((a, b) => {
+        if (a.key === null && b.key === null) return a.index - b.index;
+        if (a.key === null) return 1;
+        if (b.key === null) return -1;
+        return a.key - b.key || a.index - b.index;
+      })
+      .map(item => item.member);
     setOrder(next);
+  };
+
+  const save = async () => {
+    if (generation === null || !dirty) return;
+    const previous = order;
     setSaving(true);
     setError('');
     try {
-      await onReorder(generation, next.map(member => member.id));
+      await onReorder(generation, order.map(member => member.id));
+      setBaseline(previous);
     } catch (err) {
-      setOrder(previous);
+      setOrder(baseline);
       setError(err instanceof Error ? err.message : '排序保存失败');
     } finally {
       setSaving(false);
@@ -61,7 +84,7 @@ export default function SiblingOrderControl({ members, generation, onReorder }: 
     if (from < 0 || to < 0) return;
     const [member] = next.splice(from, 1);
     next.splice(to, 0, member);
-    void save(next);
+    setOrder(next);
   };
 
   if (peers.length < 2) return null;
@@ -69,7 +92,30 @@ export default function SiblingOrderControl({ members, generation, onReorder }: 
     <section className="mt-4 border-t border-slate-100 pt-3" aria-labelledby="sibling-order-title">
       <div className="flex items-center justify-between gap-2">
         <h4 id="sibling-order-title" className="text-sm font-semibold text-slate-700">同辈排序</h4>
-        <span className="text-[11px] text-slate-400">{saving ? '保存中…' : '拖拽或使用箭头'}</span>
+        <span className="text-[11px] text-slate-400">{saving ? '保存中…' : dirty ? '调整后需保存' : '拖拽或使用箭头'}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+          disabled={saving || !hasBirthday}
+          onClick={sortByBirthday}
+        >
+          <CalendarDays className="h-3.5 w-3.5" />按生日排序
+        </button>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded bg-cinnabar-600 px-2 py-1 text-xs text-white hover:bg-cinnabar-700 disabled:opacity-40"
+          disabled={saving || !dirty}
+          onClick={() => void save()}
+        >
+          <Save className="h-3.5 w-3.5" />保存顺序
+        </button>
+        {dirty && !saving && (
+          <button type="button" className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-50" onClick={() => setOrder(baseline)}>
+            重置
+          </button>
+        )}
       </div>
       <ol className="mt-2 space-y-1">
         {order.map((member, index) => (

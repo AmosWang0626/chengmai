@@ -16,6 +16,8 @@ public record FamilyMember(
         String name,
         String gender,          // male / female / other
         String birthDate,
+        String birthCalendar,   // solar / lunar
+        Integer birthLunarLeap, // 农历闰月标记：0 否 / 1 是
         String deathDate,
         String phone,
         String email,
@@ -32,6 +34,8 @@ public record FamilyMember(
         String spouseName,
         String spouseOrigin,
         String spouseBirthDate,
+        String spouseBirthCalendar,
+        Integer spouseLunarLeap,
         String spouseDeathDate,
         String notes,
         String createdAt,

@@ -181,6 +181,27 @@ class MemberServiceTest {
     }
 
     @Test
+    @DisplayName("生日支持农历并默认阳历")
+    void birthCalendarDefaultsAndLunarValidation() {
+        FamilyMember solar = service.create(admin, body("name", "甲", "birth_date", "1900-01-31"));
+        assertEquals("solar", solar.birthCalendar());
+        assertEquals(0, solar.birthLunarLeap());
+
+        FamilyMember lunar = service.create(admin, body("name", "乙", "birth_date", "1900-01-01", "birth_calendar", "lunar"));
+        assertEquals("lunar", lunar.birthCalendar());
+        FamilyMember updated = service.update(lunar.id(), body("birth_date", "1900-01-02"));
+        assertEquals("lunar", updated.birthCalendar());
+        assertEquals("1900-01-02", updated.birthDate());
+
+        assertEquals(400, assertThrows(ApiException.class,
+                () -> service.create(admin, body("name", "丙", "birth_date", "1900-13-01", "birth_calendar", "lunar"))).status());
+        assertEquals(400, assertThrows(ApiException.class,
+                () -> service.create(admin, body("name", "丁", "birth_date", "1900-01-31", "birth_calendar", "lunar"))).status());
+        assertEquals(400, assertThrows(ApiException.class,
+                () -> service.create(admin, body("name", "戊", "birth_calendar", "unknown"))).status());
+    }
+
+    @Test
     @DisplayName("批量创建任一条失败则整批回滚")
     void batchCreateRollsBackOnFailure() {
         ApiException e = assertThrows(ApiException.class, () -> service.createBatch(admin, List.of(
@@ -244,6 +265,21 @@ class MemberServiceTest {
         assertEquals(child.id(), updated.get(0).parentId());
         assertNull(updated.get(1).parentId());
         assertEquals(child.id(), service.list().stream().filter(m -> m.id().equals(grandchild.id())).findFirst().orElseThrow().parentId());
+    }
+
+    @Test
+    @DisplayName("批量更新支持农历生日")
+    void batchUpdateSupportsLunarBirthday() {
+        FamilyMember first = service.create(admin, body("name", "甲"));
+        FamilyMember second = service.create(admin, body("name", "乙"));
+
+        List<FamilyMember> updated = service.updateBatch(List.of(
+                body("id", first.id(), "birth_date", "1900-01-01", "birth_calendar", "lunar"),
+                body("id", second.id(), "birth_date", "1900-02-01")));
+
+        assertEquals("lunar", updated.get(0).birthCalendar());
+        assertEquals("1900-01-01", updated.get(0).birthDate());
+        assertEquals("solar", updated.get(1).birthCalendar());
     }
 
     @Test

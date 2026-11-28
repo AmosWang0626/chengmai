@@ -6,6 +6,7 @@ import { CNode, genderTint } from '../pages/tree/shared';
 import BatchChildrenModal from './BatchChildrenModal';
 import SiblingOrderControl from './SiblingOrderControl';
 import DateInput from './DateInput';
+import { formatBirthDate } from '../utils/calendar';
 import '../pages/treeGraph.css';
 
 interface MemberPanelProps {
@@ -23,11 +24,15 @@ interface PanelForm {
   name: string;
   gender: FamilyMember['gender'] | '';
   birthDate: string;
+  birthCalendar: 'solar' | 'lunar';
+  birthLunarLeap: number;
   deathDate: string;
   phone: string;
   spouseName: string;
   spouseOrigin: string;
   spouseBirthDate: string;
+  spouseBirthCalendar: 'solar' | 'lunar';
+  spouseLunarLeap: number;
   spouseDeathDate: string;
   notes: string;
 }
@@ -42,11 +47,15 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
     name: node.name,
     gender: node.gender || '',
     birthDate: node.birth_date || '',
+    birthCalendar: node.birth_calendar || 'solar',
+    birthLunarLeap: node.birth_lunar_leap || 0,
     deathDate: node.death_date || '',
     phone: node.phone || '',
     spouseName: node.spouse_name || '',
     spouseOrigin: node.spouse_origin || '',
     spouseBirthDate: node.spouse_birth_date || '',
+    spouseBirthCalendar: node.spouse_birth_calendar || 'solar',
+    spouseLunarLeap: node.spouse_lunar_leap || 0,
     spouseDeathDate: node.spouse_death_date || '',
     notes: node.notes || '',
   });
@@ -58,15 +67,19 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
       name: node.name,
       gender: node.gender || '',
       birthDate: node.birth_date || '',
+      birthCalendar: node.birth_calendar || 'solar',
+      birthLunarLeap: node.birth_lunar_leap || 0,
       deathDate: node.death_date || '',
       phone: node.phone || '',
       spouseName: node.spouse_name || '',
       spouseOrigin: node.spouse_origin || '',
       spouseBirthDate: node.spouse_birth_date || '',
+      spouseBirthCalendar: node.spouse_birth_calendar || 'solar',
+      spouseLunarLeap: node.spouse_lunar_leap || 0,
       spouseDeathDate: node.spouse_death_date || '',
       notes: node.notes || '',
     });
-  }, [node.id, node.name, node.gender, node.birth_date, node.death_date, node.phone, node.spouse_name, node.spouse_origin, node.spouse_birth_date, node.spouse_death_date, node.notes, isSpouse]);
+  }, [node.id, node.name, node.gender, node.birth_date, node.birth_calendar, node.birth_lunar_leap, node.death_date, node.phone, node.spouse_name, node.spouse_origin, node.spouse_birth_date, node.spouse_birth_calendar, node.spouse_lunar_leap, node.spouse_death_date, node.notes, isSpouse]);
 
   const name = isSpouse ? node.spouse_name! : node.name;
   const tint = isSpouse ? 'bg-slate-100 text-slate-600' : genderTint(node.gender);
@@ -74,7 +87,7 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
     value ? <div className="tc-row" key={key}><span className="k">{key}</span><span className="v">{value}</span></div> : null;
   const inputClass = 'ui-input w-full text-sm';
 
-  const updateForm = (field: keyof PanelForm, value: string) => {
+  const updateForm = (field: keyof PanelForm, value: PanelForm[keyof PanelForm]) => {
     setForm(previous => ({ ...previous, [field]: value }));
   };
 
@@ -91,6 +104,8 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
           spouse_name: form.spouseName.trim() || null,
           spouse_origin: form.spouseOrigin.trim() || null,
           spouse_birth_date: form.spouseBirthDate || null,
+          spouse_birth_calendar: form.spouseBirthCalendar,
+          spouse_lunar_leap: form.spouseLunarLeap,
           spouse_death_date: form.spouseDeathDate || null,
         });
       } else {
@@ -98,11 +113,15 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
           name: form.name.trim(),
           gender: form.gender || null,
           birth_date: form.birthDate || null,
+          birth_calendar: form.birthCalendar,
+          birth_lunar_leap: form.birthLunarLeap,
           death_date: form.deathDate || null,
           phone: form.phone.trim() || null,
           spouse_name: form.spouseName.trim() || null,
           spouse_origin: form.spouseOrigin.trim() || null,
           spouse_birth_date: form.spouseBirthDate || null,
+          spouse_birth_calendar: form.spouseBirthCalendar,
+          spouse_lunar_leap: form.spouseLunarLeap,
           spouse_death_date: form.spouseDeathDate || null,
           notes: form.notes.trim() || null,
         });
@@ -147,7 +166,16 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
                 <>
                   <label className="block"><span className="ui-label">姓名</span><input className={inputClass} value={form.spouseName} onChange={event => updateForm('spouseName', event.target.value)} /></label>
                   <label className="block"><span className="ui-label">籍贯</span><input className={inputClass} value={form.spouseOrigin} onChange={event => updateForm('spouseOrigin', event.target.value)} /></label>
-                  <label className="block"><span className="ui-label">出生日期</span><DateInput className={inputClass} value={form.spouseBirthDate} onChange={value => updateForm('spouseBirthDate', value)} ariaLabel="配偶出生日期" /></label>
+                  <label className="block"><span className="ui-label">出生日期</span><DateInput
+                    className={inputClass}
+                    value={form.spouseBirthDate}
+                    onChange={value => updateForm('spouseBirthDate', value)}
+                    calendar={form.spouseBirthCalendar}
+                    onCalendarChange={calendar => updateForm('spouseBirthCalendar', calendar)}
+                    leap={Boolean(form.spouseLunarLeap)}
+                    onLeapChange={leap => updateForm('spouseLunarLeap', leap ? 1 : 0)}
+                    ariaLabel="配偶出生日期"
+                  /></label>
                   <label className="block"><span className="ui-label">逝世日期</span><DateInput className={inputClass} value={form.spouseDeathDate} onChange={value => updateForm('spouseDeathDate', value)} ariaLabel="配偶逝世日期" /></label>
                 </>
               ) : (
@@ -155,14 +183,32 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
                   <label className="block"><span className="ui-label">姓名</span><input className={inputClass} value={form.name} onChange={event => updateForm('name', event.target.value)} /></label>
                   <label className="block"><span className="ui-label">性别</span><select className={inputClass} value={form.gender || ''} onChange={event => updateForm('gender', event.target.value)}><option value="">未填写</option><option value="male">男</option><option value="female">女</option><option value="other">其他</option></select></label>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="block"><span className="ui-label">出生</span><DateInput className={inputClass} value={form.birthDate} onChange={value => updateForm('birthDate', value)} ariaLabel="出生日期" /></label>
+                    <label className="block"><span className="ui-label">出生</span><DateInput
+                      className={inputClass}
+                      value={form.birthDate}
+                      onChange={value => updateForm('birthDate', value)}
+                      calendar={form.birthCalendar}
+                      onCalendarChange={calendar => updateForm('birthCalendar', calendar)}
+                      leap={Boolean(form.birthLunarLeap)}
+                      onLeapChange={leap => updateForm('birthLunarLeap', leap ? 1 : 0)}
+                      ariaLabel="出生日期"
+                    /></label>
                     <label className="block"><span className="ui-label">逝世</span><DateInput className={inputClass} value={form.deathDate} onChange={value => updateForm('deathDate', value)} ariaLabel="逝世日期" /></label>
                   </div>
                   <label className="block"><span className="ui-label">电话</span><input className={inputClass} value={form.phone} onChange={event => updateForm('phone', event.target.value)} /></label>
                   <label className="block"><span className="ui-label">配偶姓名</span><input className={inputClass} value={form.spouseName} onChange={event => updateForm('spouseName', event.target.value)} /></label>
                   <label className="block"><span className="ui-label">配偶籍贯</span><input className={inputClass} value={form.spouseOrigin} onChange={event => updateForm('spouseOrigin', event.target.value)} /></label>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="block"><span className="ui-label">配偶出生</span><DateInput className={inputClass} value={form.spouseBirthDate} onChange={value => updateForm('spouseBirthDate', value)} ariaLabel="配偶出生日期" /></label>
+                    <label className="block"><span className="ui-label">配偶出生</span><DateInput
+                    className={inputClass}
+                    value={form.spouseBirthDate}
+                    onChange={value => updateForm('spouseBirthDate', value)}
+                    calendar={form.spouseBirthCalendar}
+                    onCalendarChange={calendar => updateForm('spouseBirthCalendar', calendar)}
+                    leap={Boolean(form.spouseLunarLeap)}
+                    onLeapChange={leap => updateForm('spouseLunarLeap', leap ? 1 : 0)}
+                    ariaLabel="配偶出生日期"
+                  /></label>
                     <label className="block"><span className="ui-label">配偶逝世</span><DateInput className={inputClass} value={form.spouseDeathDate} onChange={value => updateForm('spouseDeathDate', value)} ariaLabel="配偶逝世日期" /></label>
                   </div>
                   <label className="block"><span className="ui-label">备注</span><textarea className={inputClass} rows={3} value={form.notes} onChange={event => updateForm('notes', event.target.value)} /></label>
@@ -177,14 +223,14 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
                   {row('姓名', node.spouse_name)}
                   {row('配偶', node.name)}
                   {row('籍贯', node.spouse_origin)}
-                  {row('出生', node.spouse_birth_date)}
+                  {row('出生', formatBirthDate({ birth_date: node.spouse_birth_date, birth_calendar: node.spouse_birth_calendar, birth_lunar_leap: node.spouse_lunar_leap }))}
                   {row('逝世', node.spouse_death_date)}
                 </>
               ) : (
                 <>
                   {row('同辈顺序', node.family_rank ? `第${node.family_rank}位` : '')}
                   {row('同性别排行', node.sibling_rank ? `第${node.sibling_rank}位` : '')}
-                  {row('出生', node.birth_date)}
+                  {row('出生', formatBirthDate(node))}
                   {row('逝世', node.death_date)}
                   {row('电话', node.phone)}
                   {row('邮箱', node.email)}

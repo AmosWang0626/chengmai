@@ -24,10 +24,10 @@ import java.util.Set;
 public class MemberService {
     /** 允许从请求体拾取的字段（与前端表单一致）。 */
     private static final List<String> FIELDS = List.of(
-            "name", "gender", "birth_date", "death_date", "phone", "email", "address",
+            "name", "gender", "birth_date", "birth_calendar", "birth_lunar_leap", "death_date", "phone", "email", "address",
             "occupation", "education", "bio", "avatar_url", "parent_id", "generation",
             "generation_char", "sibling_rank", "family_rank", "spouse_name", "spouse_origin",
-            "spouse_birth_date", "spouse_death_date", "notes");
+            "spouse_birth_date", "spouse_birth_calendar", "spouse_lunar_leap", "spouse_death_date", "notes");
 
     /** 这些字段传空串时按 null 入库（清空语义）。 */
     private static final Set<String> NULLABLE = Set.of(
@@ -59,18 +59,24 @@ public class MemberService {
         }
         data.put("parent_id", parentId);
         if (data.get("generation") == null) data.put("generation", 1);
+        data.putIfAbsent("birth_calendar", "solar");
+        data.putIfAbsent("birth_lunar_leap", 0);
+        data.putIfAbsent("spouse_birth_calendar", "solar");
+        data.putIfAbsent("spouse_lunar_leap", 0);
         fillGenerationChar(data);
         fillRanks(data, 0L);
         long id = members.insert(new FamilyMember(
                 null, actor.id(), str(data.get("name")), str(data.get("gender")),
-                str(data.get("birth_date")), str(data.get("death_date")),
+                str(data.get("birth_date")), str(data.get("birth_calendar")), intOrNull(data.get("birth_lunar_leap")),
+                str(data.get("death_date")),
                 str(data.get("phone")), str(data.get("email")), str(data.get("address")),
                 str(data.get("occupation")), str(data.get("education")), str(data.get("bio")),
                 str(data.get("avatar_url")), parentId,
                 intOrNull(data.get("generation")), str(data.get("generation_char")),
                 intOrNull(data.get("sibling_rank")), intOrNull(data.get("family_rank")),
                 str(data.get("spouse_name")), str(data.get("spouse_origin")),
-                str(data.get("spouse_birth_date")), str(data.get("spouse_death_date")),
+                str(data.get("spouse_birth_date")), str(data.get("spouse_birth_calendar")), intOrNull(data.get("spouse_lunar_leap")),
+                str(data.get("spouse_death_date")),
                 str(data.get("notes")), null, null));
         return members.findById(id).orElseThrow();
     }
@@ -202,6 +208,18 @@ public class MemberService {
     private FamilyMember updateInternal(long id, Map<String, Object> body, boolean validateHierarchy) {
         FamilyMember existing = members.findById(id).orElseThrow(() -> new ApiException(404, "成员不存在"));
         Map<String, Object> data = pickFields(body);
+        if ((data.containsKey("birth_date") || data.containsKey("birth_lunar_leap")) && !data.containsKey("birth_calendar")) {
+            data.put("birth_calendar", existing.birthCalendar() == null ? "solar" : existing.birthCalendar());
+        }
+        if (data.containsKey("birth_date") && !data.containsKey("birth_lunar_leap")) {
+            data.put("birth_lunar_leap", existing.birthLunarLeap() == null ? 0 : existing.birthLunarLeap());
+        }
+        if ((data.containsKey("spouse_birth_date") || data.containsKey("spouse_lunar_leap")) && !data.containsKey("spouse_birth_calendar")) {
+            data.put("spouse_birth_calendar", existing.spouseBirthCalendar() == null ? "solar" : existing.spouseBirthCalendar());
+        }
+        if (data.containsKey("spouse_birth_date") && !data.containsKey("spouse_lunar_leap")) {
+            data.put("spouse_lunar_leap", existing.spouseLunarLeap() == null ? 0 : existing.spouseLunarLeap());
+        }
         validate(data, false);
         if (data.containsKey("parent_id")) {
             Long parentId = parentIdOrNull(data.get("parent_id"));
@@ -308,7 +326,27 @@ public class MemberService {
             }
             data.put(field, rank);
         }
-        for (String field : List.of("birth_date", "death_date", "spouse_birth_date", "spouse_death_date")) {
+        for (String field : List.of("birth_calendar", "spouse_birth_calendar")) {
+            if (!data.containsKey(field)) continue;
+            String calendar = str(data.get(field));
+            if (calendar == null || calendar.isBlank()) calendar = "solar";
+            if (!Set.of("solar", "lunar").contains(calendar)) {
+                throw new ApiException(400, "历法取值无效");
+            }
+            data.put(field, calendar);
+        }
+        for (String field : List.of("birth_lunar_leap", "spouse_lunar_leap")) {
+            if (!data.containsKey(field)) continue;
+            Integer leap = strictInt(data.get(field), "闰月标记");
+            if (leap == null) leap = 0;
+            if (leap != 0 && leap != 1) {
+                throw new ApiException(400, "闰月标记必须为 0 或 1");
+            }
+            data.put(field, leap);
+        }
+        validateDateField(data, "birth_date", "birth_calendar");
+        validateDateField(data, "spouse_birth_date", "spouse_birth_calendar");
+        for (String field : List.of("death_date", "spouse_death_date")) {
             if (!data.containsKey(field) || data.get(field) == null) continue;
             String value = str(data.get(field)).trim();
             try {
@@ -317,6 +355,31 @@ public class MemberService {
                 throw new ApiException(400, "日期格式应为 YYYY-MM-DD");
             }
             data.put(field, value);
+        }
+    }
+
+    private static void validateDateField(Map<String, Object> data, String dateField, String calendarField) {
+        if (!data.containsKey(dateField) || data.get(dateField) == null) return;
+        String value = str(data.get(dateField)).trim();
+        boolean lunar = "lunar".equals(str(data.get(calendarField)));
+        String[] parts = value.split("-");
+        if (parts.length != 3) {
+            throw new ApiException(400, "日期格式应为 YYYY-MM-DD");
+        }
+        try {
+            int year = Integer.parseInt(parts[0]);
+            int month = Integer.parseInt(parts[1]);
+            int day = Integer.parseInt(parts[2]);
+            if (year < 1 || year > 9999) throw new NumberFormatException();
+            if (lunar) {
+                if (month < 1 || month > 12 || day < 1 || day > 30) throw new NumberFormatException();
+                data.put(dateField, String.format("%04d-%02d-%02d", year, month, day));
+            } else {
+                java.time.LocalDate.of(year, month, day);
+                data.put(dateField, String.format("%04d-%02d-%02d", year, month, day));
+            }
+        } catch (Exception e) {
+            throw new ApiException(400, lunar ? "农历日期应为 YYYY-MM-DD，月 1-12、日 1-30" : "日期格式应为 YYYY-MM-DD");
         }
     }
 

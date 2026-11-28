@@ -12,6 +12,7 @@ import SiblingOrderDialog from '../components/SiblingOrderDialog';
 import { ROUTES, memberEditPath } from '../routes';
 import MemberTreeView from './MemberTreeView';
 import GenerationView from './GenerationView';
+import { formatBirthDate } from '../utils/calendar';
 
 interface MemberListProps {
   user: User | null;
@@ -354,7 +355,7 @@ export default function MemberList({ user }: MemberListProps) {
                             {memberChildrenCount[member.id] || 0}人
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-600">{member.birth_date || '-'}</td>
+                        <td className="px-4 py-3 text-slate-600">{formatBirthDate(member) || '-'}</td>
                         <td className="px-4 py-3">
                           {/* 操作按钮 - 管理员和编辑可用 */}
                           {canEditContent && (

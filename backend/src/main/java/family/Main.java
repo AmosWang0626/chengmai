@@ -29,6 +29,8 @@ import io.javalin.Javalin;
 import io.javalin.config.MultipartConfig;
 import io.javalin.config.SizeUnit;
 import io.javalin.http.staticfiles.Location;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,6 +44,8 @@ import java.util.Map;
  * @date 2026-11-19
  */
 public class Main {
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
+
     public static void main(String[] args) throws Exception {
         // 配置与数据目录
         AppConfig config = AppConfig.fromEnv();
@@ -111,6 +115,6 @@ public class Main {
         });
 
         app.start(config.port());
-        System.out.println("家谱后端(Java)已启动: http://localhost:" + config.port());
+        log.info("家谱后端(Java)已启动: http://localhost:{}", config.port());
     }
 }

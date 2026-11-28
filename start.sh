@@ -61,8 +61,11 @@ build_frontend() {
 start_backend() {
   if pid_of backend >/dev/null; then ok "后端已在运行（pid $(pid_of backend)）"; return 0; fi
   [ -f "$JAR" ] || build_backend
+  # 运行快照而非 target 原文件：后续 mvn package 覆盖 jar 时，不会破坏运行中 JVM 的懒加载
+  local run_jar="$RUN/chengmai-backend.jar"
+  cp "$JAR" "$run_jar"
   log "启动后端（端口 ${PORT}）…"
-  nohup java --enable-native-access=ALL-UNNAMED -jar "$JAR" >"$RUN/backend.log" 2>&1 &
+  nohup java --enable-native-access=ALL-UNNAMED -jar "$run_jar" >"$RUN/backend.log" 2>&1 &
   echo $! >"$RUN/backend.pid"
   wait_port "$PORT" backend
 }
