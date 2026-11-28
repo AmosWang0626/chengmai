@@ -1,4 +1,4 @@
-import { Lunar, Solar } from 'lunar-typescript';
+import { Lunar, LunarYear, Solar } from 'lunar-typescript';
 import type { FamilyMember } from '../types';
 
 export type CalendarType = 'solar' | 'lunar';
@@ -74,4 +74,76 @@ export const formatBirthDate = (member: Pick<FamilyMember, 'birth_date' | 'birth
   const month = `${member.birth_lunar_leap ? '闰' : ''}${LUNAR_MONTH_NAMES[parts.month - 1] || parts.month}`;
   const day = LUNAR_DAY_NAMES[parts.day - 1] || parts.day;
   return `农历${parts.year}年${month}${day}`;
+};
+
+export interface BirthdayReminder {
+  member: FamilyMember;
+  date: string;
+  daysUntil: number;
+  label: string;
+  turningAge: number | null;
+}
+
+const DAY_MS = 86_400_000;
+const utcTs = (year: number, month: number, day: number) => Date.UTC(year, month - 1, day);
+const solarDaysInMonth = (year: number, month: number) => new Date(Date.UTC(year, month, 0)).getUTCDate();
+const isoFromTs = (ts: number) => {
+  const date = new Date(ts);
+  return `${pad(date.getUTCFullYear(), 4)}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+};
+
+export const upcomingBirthdays = (members: FamilyMember[], today = new Date(), windowDays = 30): BirthdayReminder[] => {
+  const todayTs = utcTs(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const endTs = todayTs + windowDays * DAY_MS;
+  const currentLunarYear = Solar.fromYmd(today.getFullYear(), today.getMonth() + 1, today.getDate()).getLunar().getYear();
+  const reminders: BirthdayReminder[] = [];
+
+  for (const member of members) {
+    if (!member.birth_date || member.death_date) continue;
+    const birth = parseDateParts(member.birth_date);
+    if (!birth) continue;
+    const lunar = member.birth_calendar === 'lunar';
+    const leap = lunar && Boolean(member.birth_lunar_leap);
+    let next: { ts: number; year: number; label: string } | null = null;
+
+    if (lunar) {
+      const maxYear = currentLunarYear + (leap ? 100 : 1);
+      for (let year = currentLunarYear; year <= maxYear; year++) {
+        if (leap && LunarYear.fromYear(year).getLeapMonth() !== birth.month) continue;
+        try {
+          const solar = Lunar.fromYmd(year, leap ? -birth.month : birth.month, birth.day).getSolar();
+          const ts = utcTs(solar.getYear(), solar.getMonth(), solar.getDay());
+          if (ts >= todayTs) {
+            const monthName = `${leap ? '闰' : ''}${LUNAR_MONTH_NAMES[birth.month - 1] || birth.month}`;
+            next = { ts, year, label: `农历${monthName}${LUNAR_DAY_NAMES[birth.day - 1] || birth.day}` };
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+    } else {
+      let year = today.getFullYear();
+      let day = Math.min(birth.day, solarDaysInMonth(year, birth.month));
+      let ts = utcTs(year, birth.month, day);
+      if (ts < todayTs) {
+        year += 1;
+        day = Math.min(birth.day, solarDaysInMonth(year, birth.month));
+        ts = utcTs(year, birth.month, day);
+      }
+      next = { ts, year, label: `${birth.month}月${day}日` };
+    }
+
+    if (next && next.ts <= endTs) {
+      reminders.push({
+        member,
+        date: isoFromTs(next.ts),
+        daysUntil: Math.round((next.ts - todayTs) / DAY_MS),
+        label: next.label,
+        turningAge: next.year - birth.year,
+      });
+    }
+  }
+
+  return reminders.sort((a, b) => a.daysUntil - b.daysUntil || a.member.name.localeCompare(b.member.name, 'zh'));
 };

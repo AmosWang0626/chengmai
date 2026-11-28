@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, PieChart, Image, UserPlus, ArrowRight, Network, ScrollText, BookOpen } from 'lucide-react';
+import { Users, PieChart, Image, UserPlus, ArrowRight, Network, ScrollText, BookOpen, Cake } from 'lucide-react';
 import { User } from '../types';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
 import { useUserRole } from '../hooks/useUserRole';
@@ -9,6 +9,7 @@ import Layout from '../components/Layout';
 import { InlineNotice } from '../components/Feedback';
 import { ROUTES } from '../routes';
 import { genderTint } from './tree/shared';
+import { upcomingBirthdays } from '../utils/calendar';
 
 const GEN_HUES = ['#B93A26', '#C9972C', '#3E8763', '#357F7E', '#2563EB', '#9C3240'];
 
@@ -87,6 +88,7 @@ export default function DashboardPage({ user }: { user: User | null }) {
   const recentMembers = useMemo(() => [...members]
     .sort((a, b) => (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || ''))
     .slice(0, 5), [members]);
+  const birthdayReminders = useMemo(() => upcomingBirthdays(members), [members]);
 
   const quickActions = [
     { label: '家谱图谱', icon: PieChart, path: ROUTES.graph, primary: true, editorOnly: false },
@@ -182,6 +184,29 @@ export default function DashboardPage({ user }: { user: User | null }) {
           </section>
 
           <div className="space-y-3">
+            <section className="rise ui-card" style={{ '--d': '130ms' } as React.CSSProperties}>
+              <div className="ui-head">
+                <Cake className="w-4 h-4 text-cinnabar-600" />
+                <h2 className="ui-title">生日提醒</h2>
+                <span className="ml-auto text-[11px] text-slate-400">近一个月</span>
+              </div>
+              <div className="p-1.5 max-h-64 overflow-y-auto">
+                {birthdayReminders.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-400">近一个月暂无生日</div>
+                ) : birthdayReminders.map(reminder => (
+                  <Link key={reminder.member.id} to={`${ROUTES.graph}?focus=${reminder.member.id}`}
+                    className="flex items-center gap-2 h-9 px-2 rounded-lg hover:bg-cinnabar-50/70 transition-colors">
+                    <span className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${genderTint(reminder.member.gender)}`}>{reminder.member.name.slice(-1)}</span>
+                    <span className="w-20 truncate text-[13px] font-medium text-slate-800 flex-shrink-0">{reminder.member.name}</span>
+                    <span className="flex-1 truncate text-xs text-slate-500">{reminder.label} · {reminder.date.slice(5).replace('-', '/')}</span>
+                    <span className={`px-1.5 py-px rounded text-[10px] font-medium num flex-shrink-0 ${reminder.daysUntil === 0 ? 'bg-cinnabar-100 text-cinnabar-700' : 'bg-gilt-100 text-gilt-700'}`}>
+                      {reminder.daysUntil === 0 ? '今天' : `${reminder.daysUntil}天后`}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+
             <section className="rise ui-card" style={{ '--d': '140ms' } as React.CSSProperties}>
               <div className="ui-head"><Users className="w-4 h-4 text-cinnabar-600" /><h2 className="ui-title">最近更新</h2></div>
               <div className="p-1.5">
