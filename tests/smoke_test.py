@@ -151,21 +151,25 @@ def run_smoke(jar):
             expect("batch update succeeds", request(base, "PUT", "/api/members/batch", admin,
                 body=[{"id": parent["id"], "bio": "批量更新"}]), 200)
 
+            other_parent = expect("create second parent", request(base, "POST", "/api/members", admin,
+                body={"name": "另一位父辈", "generation": 1}), 201)[2]
             sibling_a = expect("create first sibling", request(base, "POST", "/api/members", admin,
                 body={"name": "长子", "parent_id": parent["id"], "generation": 2, "gender": "male"}), 201)[2]
             sibling_b = expect("create second sibling", request(base, "POST", "/api/members", admin,
-                body={"name": "次女", "parent_id": parent["id"], "generation": 2, "gender": "female"}), 201)[2]
-            group = [member for member in expect("siblings before reorder", request(base, "GET", "/api/members", admin), 200)[2]
-                     if member["parent_id"] == parent["id"]]
+                body={"name": "次女", "parent_id": other_parent["id"], "generation": 2, "gender": "female"}), 201)[2]
+            sibling_c = expect("create third sibling", request(base, "POST", "/api/members", admin,
+                body={"name": "次子", "parent_id": parent["id"], "generation": 2, "gender": "male"}), 201)[2]
+            group = [member for member in expect("generation peers before reorder", request(base, "GET", "/api/members", admin), 200)[2]
+                     if member["generation"] == 2]
             reordered_ids = list(reversed([member["id"] for member in group]))
-            expect("reorder requires complete group", request(base, "PUT", "/api/members/order", admin,
-                body={"parent_id": parent["id"], "member_ids": reordered_ids[:-1]}), 400)
+            expect("reorder requires complete generation", request(base, "PUT", "/api/members/order", admin,
+                body={"generation": 2, "member_ids": reordered_ids[:-1]}), 400)
             expect("reorder rejects duplicate ids", request(base, "PUT", "/api/members/order", admin,
-                body={"parent_id": parent["id"], "member_ids": [reordered_ids[0]] + reordered_ids}), 400)
+                body={"generation": 2, "member_ids": [reordered_ids[0]] + reordered_ids}), 400)
             expect("viewer cannot reorder", request(base, "PUT", "/api/members/order", viewer,
-                body={"parent_id": parent["id"], "member_ids": reordered_ids}), 403)
-            reordered = expect("reorder siblings", request(base, "PUT", "/api/members/order", admin,
-                body={"parent_id": parent["id"], "member_ids": reordered_ids}), 200)[2]
+                body={"generation": 2, "member_ids": reordered_ids}), 403)
+            reordered = expect("reorder generation peers", request(base, "PUT", "/api/members/order", admin,
+                body={"generation": 2, "member_ids": reordered_ids}), 200)[2]
             assert [member["id"] for member in reordered] == reordered_ids
             assert [member["family_rank"] for member in reordered] == list(range(1, len(group) + 1))
             gender_ranks = {}
@@ -173,6 +177,9 @@ def run_smoke(jar):
                 gender = member["gender"] or "other"
                 gender_ranks[gender] = gender_ranks.get(gender, 0) + 1
                 assert member["sibling_rank"] == gender_ranks[gender]
+            legacy_reordered = expect("legacy parent reorder uses whole generation", request(base, "PUT", "/api/members/order", admin,
+                body={"parent_id": parent["id"], "member_ids": [member["id"] for member in group]}), 200)[2]
+            assert [member["id"] for member in legacy_reordered] == [member["id"] for member in group]
 
             editor = expect("create editor", request(base, "POST", "/api/users", admin,
                 body={"username": "editor01", "password": "editorpass", "role": "editor"}), 201)[2]

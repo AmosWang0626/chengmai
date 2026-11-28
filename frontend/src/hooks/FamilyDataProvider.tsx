@@ -17,7 +17,7 @@ interface FamilyDataContextValue {
   createMembersBatch: (userId: number | undefined, data: Partial<FamilyMember>[]) => Promise<FamilyMember[]>;
   updateMember: (userId: number | undefined, id: number, data: Partial<FamilyMember>) => Promise<FamilyMember>;
   updateMembersBatch: (userId: number | undefined, data: (Partial<FamilyMember> & { id: number })[]) => Promise<FamilyMember[]>;
-  reorderMembers: (userId: number | undefined, parentId: number | null, memberIds: number[]) => Promise<FamilyMember[]>;
+  reorderMembers: (userId: number | undefined, generation: number, memberIds: number[]) => Promise<FamilyMember[]>;
   deleteMember: (userId: number | undefined, id: number) => Promise<void>;
 }
 
@@ -150,9 +150,9 @@ export function FamilyDataProvider({ children }: { children: React.ReactNode }) 
       replaceMembers(userId, members => members.map(member => byId.get(member.id) || member));
       return updated;
     },
-    async reorderMembers(userId, parentId, memberIds) {
+    async reorderMembers(userId, generation, memberIds) {
       beginMutation(userId);
-      const ordered = await api.reorderMembers(parentId, memberIds);
+      const ordered = await api.reorderMembers(generation, memberIds);
       finishMutation(userId);
       const byId = new Map(ordered.map(member => [member.id, member]));
       replaceMembers(userId, members => members.map(member => byId.get(member.id) || member));

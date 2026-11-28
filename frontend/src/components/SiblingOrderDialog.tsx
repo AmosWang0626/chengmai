@@ -7,33 +7,40 @@ interface SiblingOrderDialogProps {
   open: boolean;
   members: FamilyMember[];
   onClose: () => void;
-  onReorder: (parentId: number | null, memberIds: number[]) => Promise<unknown>;
+  onReorder: (generation: number, memberIds: number[]) => Promise<unknown>;
+}
+
+interface GenerationGroup {
+  generation: number;
+  generationChar: string;
+  members: FamilyMember[];
 }
 
 export default function SiblingOrderDialog({ open, members, onClose, onReorder }: SiblingOrderDialogProps) {
   const groups = useMemo(() => {
-    const byParent = new Map<string, { parentId: number | null; members: FamilyMember[] }>();
+    const byGeneration = new Map<number, GenerationGroup>();
     members.forEach(member => {
-      const key = member.parent_id === null ? 'root' : String(member.parent_id);
-      const group = byParent.get(key) || { parentId: member.parent_id, members: [] };
+      if (member.generation === null) return;
+      const group = byGeneration.get(member.generation) || {
+        generation: member.generation,
+        generationChar: member.generation_char || '',
+        members: [],
+      };
       group.members.push(member);
-      byParent.set(key, group);
+      byGeneration.set(member.generation, group);
     });
-    return [...byParent.values()]
+    return [...byGeneration.values()]
       .filter(group => group.members.length > 1)
-      .sort((a, b) => (a.members[0]?.generation || 0) - (b.members[0]?.generation || 0));
+      .sort((a, b) => a.generation - b.generation);
   }, [members]);
-  const [parentId, setParentId] = useState<number | null>(null);
-  const [selectedKey, setSelectedKey] = useState('');
+  const [generation, setGeneration] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!open || !groups.length) return;
-    const current = groups.find(group => String(group.parentId) === selectedKey);
-    if (!current) {
-      setParentId(groups[0].parentId);
-      setSelectedKey(String(groups[0].parentId));
+    if (!open || groups.length === 0) return;
+    if (!groups.some(group => group.generation === generation)) {
+      setGeneration(groups[0].generation);
     }
-  }, [open, groups, selectedKey]);
+  }, [open, groups, generation]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,33 +60,30 @@ export default function SiblingOrderDialog({ open, members, onClose, onReorder }
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 id="sibling-order-dialog-title" className="font-display text-xl font-bold text-slate-900">同辈拖拽排序</h2>
-            <p className="mt-1 text-sm text-slate-500">仅调整同一父母下的兄弟姐妹，家庭排行与同性别排行会自动重算。</p>
+            <p className="mt-1 text-sm text-slate-500">按世代统一调整同辈成员，不区分父母；同辈顺序与同性别排行会自动重算。</p>
           </div>
           <button type="button" className="ui-icon-btn h-11 w-11" onClick={onClose} aria-label="关闭同辈排序"><X className="h-5 w-5" /></button>
         </div>
         {groups.length === 0 ? (
-          <p className="py-10 text-center text-sm text-slate-500">暂无需要排序的同辈分组。</p>
+          <p className="py-10 text-center text-sm text-slate-500">暂无需要排序的同辈世代。</p>
         ) : (
           <>
             <label className="mt-4 block">
-              <span className="ui-label">选择同辈分组</span>
+              <span className="ui-label">选择同辈世代</span>
               <select
                 className="ui-select w-full"
-                value={selectedKey}
-                onChange={event => {
-                  setSelectedKey(event.target.value);
-                  setParentId(event.target.value === 'null' ? null : Number(event.target.value));
-                }}
+                value={generation ?? ''}
+                onChange={event => setGeneration(Number(event.target.value))}
               >
-                {groups.map(group => {
-                  const parent = group.parentId === null ? null : members.find(member => member.id === group.parentId);
-                  const label = parent ? `${parent.name} 的子女` : '同祖根节点';
-                  return <option key={String(group.parentId)} value={String(group.parentId)}>{label}（{group.members.length} 人）</option>;
-                })}
+                {groups.map(group => (
+                  <option key={group.generation} value={group.generation}>
+                    第{group.generation}世{group.generationChar ? ` · ${group.generationChar}字辈` : ''}（{group.members.length} 人）
+                  </option>
+                ))}
               </select>
             </label>
             <div className="mt-4">
-              <SiblingOrderControl members={members} parentId={parentId} onReorder={onReorder} />
+              {generation !== null && <SiblingOrderControl members={members} generation={generation} onReorder={onReorder} />}
             </div>
           </>
         )}

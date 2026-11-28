@@ -4,27 +4,27 @@ import type { FamilyMember } from '../types';
 
 interface SiblingOrderControlProps {
   members: FamilyMember[];
-  parentId: number | null;
-  onReorder: (parentId: number | null, memberIds: number[]) => Promise<unknown>;
+  generation: number | null;
+  onReorder: (generation: number, memberIds: number[]) => Promise<unknown>;
 }
 
-export default function SiblingOrderControl({ members, parentId, onReorder }: SiblingOrderControlProps) {
-  const siblings = useMemo(() => members
-    .filter(member => member.parent_id === parentId)
+export default function SiblingOrderControl({ members, generation, onReorder }: SiblingOrderControlProps) {
+  const peers = useMemo(() => members
+    .filter(member => member.generation === generation)
     .sort((a, b) => (a.family_rank || 0) - (b.family_rank || 0) || a.id - b.id),
-  [members, parentId]);
-  const [order, setOrder] = useState<FamilyMember[]>(siblings);
+  [members, generation]);
+  const [order, setOrder] = useState<FamilyMember[]>(peers);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const siblingIds = siblings.map(member => member.id).join(',');
-  const knownSiblingIds = useRef(siblingIds);
+  const peerIds = peers.map(member => member.id).join(',');
+  const knownPeerIds = useRef(peerIds);
 
   useEffect(() => {
-    if (siblingIds === knownSiblingIds.current) return;
-    knownSiblingIds.current = siblingIds;
-    if (!saving && draggingId === null) setOrder(siblings);
-  }, [siblingIds, siblings, saving, draggingId]);
+    if (peerIds === knownPeerIds.current) return;
+    knownPeerIds.current = peerIds;
+    if (!saving && draggingId === null) setOrder(peers);
+  }, [peerIds, peers, saving, draggingId]);
 
   const move = (id: number, offset: number) => {
     const from = order.findIndex(member => member.id === id);
@@ -37,12 +37,13 @@ export default function SiblingOrderControl({ members, parentId, onReorder }: Si
   };
 
   const save = async (next: FamilyMember[]) => {
+    if (generation === null) return;
     const previous = order;
     setOrder(next);
     setSaving(true);
     setError('');
     try {
-      await onReorder(parentId, next.map(member => member.id));
+      await onReorder(generation, next.map(member => member.id));
     } catch (err) {
       setOrder(previous);
       setError(err instanceof Error ? err.message : '排序保存失败');
@@ -63,7 +64,7 @@ export default function SiblingOrderControl({ members, parentId, onReorder }: Si
     void save(next);
   };
 
-  if (siblings.length < 2) return null;
+  if (peers.length < 2) return null;
   return (
     <section className="mt-4 border-t border-slate-100 pt-3" aria-labelledby="sibling-order-title">
       <div className="flex items-center justify-between gap-2">

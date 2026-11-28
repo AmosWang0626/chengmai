@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS family_members (
   parent_id INTEGER REFERENCES family_members(id) ON DELETE SET NULL,
   generation INTEGER DEFAULT 1,         -- 世代（第 N 世）
   generation_char TEXT,                 -- 字辈字符，可按世代自动填充
-  sibling_rank INTEGER,                 -- 同父同性别中的排行
-  family_rank INTEGER,                  -- 同父全部子女中的排序
+  sibling_rank INTEGER,                 -- 同世代同性别中的排行
+  family_rank INTEGER,                  -- 同世代全部成员中的排序
   spouse_name TEXT,
   spouse_origin TEXT,
   spouse_birth_date TEXT,

@@ -5,13 +5,13 @@
 
 核心能力：
 
-- 家族成员 CRUD：世代 / 字辈自动填充、同辈排行与家庭排序自动计算、父母子女树关系
+- 家族成员 CRUD：世代 / 字辈自动填充、按世代统一计算同辈顺序与同性别排行、父母子女树关系
 - 字辈管理：每世代一字、可隐藏
 - 家族图册：上传（落盘 + 缩略图）、审核状态机（pending → approved / rejected / hidden）、标签
 - 账号与三档权限：admin / editor / viewer
 - 家谱展示双风格：**扇形谱图**（默认首选：环状放射、配偶为环抱成员弧的"婚环"带、双击换根、全名字标注）、**传统图谱**（竖排右起谱页为主体，融合夫妻双柱信息：朱砂婚线♥、生卒、性别、卡框开关、墨线吊挂）
 - 图谱导出：JSON / SVG / 高清 PNG / PDF，可选当前分支或整个家谱、折叠后代、配偶与备注
-- 协作维护：批量新增 / 批量编辑原子提交、同辈拖拽排序、详情面板内编辑与添加子女
+- 协作维护：批量新增 / 批量编辑原子提交、按世代跨父母拖拽排序、详情面板内编辑与添加子女
 - 紧凑首页：统计、世系分布、最近更新与快捷入口；成员管理统一提供表格 / 世系 / 世代三种视图
 - 统一视觉主题：朱砂 + 鎏金 + jade + 黛青 + 暖墨宣纸
 
@@ -216,7 +216,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 | 表 | 要点 |
 | --- | --- |
 | `users` | username 唯一；role ∈ admin/editor/viewer；bcrypt 哈希（与 bcryptjs 互通） |
-| `family_members` | `parent_id` 自引用成树，删父节点子女归属置空（ON DELETE SET NULL）；generation / generation_char / sibling_rank / family_rank；配偶以字段存储（spouse_name 等） |
+| `family_members` | `parent_id` 自引用成树，删父节点子女归属置空（ON DELETE SET NULL）；generation / generation_char；sibling_rank 为同世代同性别排行，family_rank 为同世代全部成员顺序；配偶以字段存储（spouse_name 等） |
 | `generation_chars` | generation 唯一；hidden 控制前端展示 |
 | `gallery_images` | tags 为 JSON 数组字符串；status 状态机 pending/approved/rejected/hidden；记录审核人与时间 |
 
@@ -289,7 +289,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
   多静态挂载的前缀剥离行为变化会使 `/uploads` 404，故上传图片改由**显式路由** `/uploads/*` 服务（含路径穿越防护），前端 `/` 静态挂载保留。
 - 分层：`config → db → model → repository → service → web(controller)`，横切（CORS / 鉴权 / 异常映射）独立成类。
 - 安全要点：DAO 列白名单防注入；密码 bcrypt；JWT HS256（sub + role，7 天）；密钥文件 0600；`UserView` 永不暴露哈希；上传扩展名白名单 + 大小限制。
-- 测试：`mvn -f backend/pom.xml test` —— 58 项 JUnit，全部跑在内存 SQLite 上，覆盖自动字辈 / 排行、批量事务回滚、同辈排序、权限边界、最后管理员保护、token 互通、上传落盘与审核可见性等。
+- 测试：`mvn -f backend/pom.xml test` —— 60 项 JUnit，全部跑在内存 SQLite 上，覆盖自动字辈 / 排行、批量事务回滚、跨父母同辈排序、权限边界、最后管理员保护、token 互通、上传落盘与审核可见性等。
 
 ---
 

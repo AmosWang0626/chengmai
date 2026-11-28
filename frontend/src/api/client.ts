@@ -145,10 +145,10 @@ export const api = {
   updateMembersBatch(data: (Partial<FamilyMember> & { id: number })[]) {
     return request<FamilyMember[]>('/api/members/batch', { method: 'PUT', body: data });
   },
-  reorderMembers(parentId: number | null, memberIds: number[]) {
+  reorderMembers(generation: number, memberIds: number[]) {
     return request<FamilyMember[]>('/api/members/order', {
       method: 'PUT',
-      body: { parent_id: parentId, member_ids: memberIds },
+      body: { generation, member_ids: memberIds },
     });
   },
   deleteMember(id: number) {

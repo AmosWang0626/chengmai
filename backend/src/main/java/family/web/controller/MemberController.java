@@ -42,8 +42,12 @@ public class MemberController {
             if (!(rawIds instanceof List<?> ids)) {
                 throw new ApiException(400, "member_ids 必须为数组");
             }
-            Long parentId = body.get("parent_id") == null ? null : parentId(body.get("parent_id"));
-            ctx.json(service.reorder(parentId, ids));
+            if (body.get("generation") != null) {
+                ctx.json(service.reorder(generation(body.get("generation")), ids));
+            } else {
+                Long parentId = body.get("parent_id") == null ? null : parentId(body.get("parent_id"));
+                ctx.json(service.reorderByParent(parentId, ids));
+            }
         });
 
         routes.put("/api/members/{id}", ctx ->
@@ -69,6 +73,16 @@ public class MemberController {
             return new java.math.BigDecimal(String.valueOf(value).trim()).longValueExact();
         } catch (NumberFormatException | ArithmeticException e) {
             throw new ApiException(400, "所选父节点不存在");
+        }
+    }
+
+    private static int generation(Object value) {
+        try {
+            int generation = new java.math.BigDecimal(String.valueOf(value).trim()).intValueExact();
+            if (generation < 1) throw new NumberFormatException();
+            return generation;
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw new ApiException(400, "世代必须为正整数");
         }
     }
 }

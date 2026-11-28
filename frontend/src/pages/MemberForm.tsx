@@ -225,17 +225,17 @@ export default function MemberForm({ user }: { user: User | null }) {
               </div>
 
               <div>
-                <label className={labelClass}>同辈排行（同性别）</label>
+                <label className={labelClass}>同性别排行</label>
                 <input type="number" min={1} value={formData.sibling_rank}
                   onChange={event => setFormData({ ...formData, sibling_rank: Number(event.target.value) || 1 })}
-                  className={inputClass} placeholder="同性别中的排行" />
+                  className={inputClass} placeholder="同世代同性别中的排行" />
               </div>
 
               <div>
-                <label className={labelClass}>家庭排序</label>
+                <label className={labelClass}>同辈顺序</label>
                 <input type="number" min={1} value={formData.family_rank}
                   onChange={event => setFormData({ ...formData, family_rank: Number(event.target.value) || 1 })}
-                  className={inputClass} placeholder="一家人中的排序" />
+                  className={inputClass} placeholder="同世代全部成员中的顺序" />
               </div>
 
               <div className="md:col-span-2">

@@ -37,7 +37,9 @@ export function useFamilyMembers(userId: number | undefined, rootMemberId?: numb
     });
 
     const byRank = (a: TreeNode, b: TreeNode) =>
-      (a.family_rank || 0) - (b.family_rank || 0) || a.name.localeCompare(b.name, 'zh');
+      (a.generation || 0) - (b.generation || 0)
+      || (a.family_rank || 0) - (b.family_rank || 0)
+      || a.name.localeCompare(b.name, 'zh');
     memberMap.forEach(node => node.children.sort(byRank));
     rootNodes.sort(byRank);
 
@@ -63,7 +65,7 @@ export function useFamilyMembers(userId: number | undefined, rootMemberId?: numb
     addMembersBatch: (data: Partial<FamilyMember>[]) => createMembersBatch(userId, data),
     updateMember: (id: number, data: Partial<FamilyMember>) => updateMember(userId, id, data),
     updateMembersBatch: (data: (Partial<FamilyMember> & { id: number })[]) => updateMembersBatch(userId, data),
-    reorderMembers: (parentId: number | null, memberIds: number[]) => reorderMembers(userId, parentId, memberIds),
+    reorderMembers: (generation: number, memberIds: number[]) => reorderMembers(userId, generation, memberIds),
     deleteMember: (id: number) => deleteMember(userId, id),
     getGenerationChar,
   };

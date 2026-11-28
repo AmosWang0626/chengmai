@@ -57,18 +57,18 @@ public class MemberRepository {
         this.db = db;
     }
 
-    /** 全量成员，按世代 → 出生日期 → 录入时间排序（前端家族树依赖此顺序）。 */
+    /** 全量成员，按世代 → 同辈顺序 → 同性别顺序 → 录入时间排序。 */
     public List<FamilyMember> findAllOrdered() {
-        return db.query("SELECT * FROM family_members ORDER BY generation ASC, birth_date ASC, created_at ASC", MAPPER);
+        return db.query("SELECT * FROM family_members ORDER BY generation ASC, family_rank ASC, sibling_rank ASC, id ASC", MAPPER);
     }
 
     public Optional<FamilyMember> findById(long id) {
         return db.queryOne("SELECT * FROM family_members WHERE id = ?", MAPPER, id);
     }
 
-    /** 同一父节点下的兄弟姐妹，按家庭排序返回；parentId 为 null 时查询根节点。 */
-    public List<FamilyMember> findByParentOrdered(Long parentId) {
-        return db.query("SELECT * FROM family_members WHERE parent_id IS ? ORDER BY family_rank ASC, id ASC", MAPPER, parentId);
+    /** 同一世代的全部成员，按同辈顺序返回，不区分父母。 */
+    public List<FamilyMember> findByGenerationOrdered(Integer generation) {
+        return db.query("SELECT * FROM family_members WHERE generation IS ? ORDER BY family_rank ASC, id ASC", MAPPER, generation);
     }
 
     public boolean existsById(long id) {
@@ -119,17 +119,17 @@ public class MemberRepository {
         db.update("DELETE FROM family_members WHERE id = ?", id);
     }
 
-    /** 下一个同辈排行：同一父亲、同性别中的 MAX+1；IS ? 写法兼容 parentId 为 null。 */
-    public int maxSiblingRank(Long parentId, String gender, long excludeId) {
+    /** 下一个同性别排行：同一世代、同性别中的 MAX+1。 */
+    public int maxSiblingRank(Integer generation, String gender, long excludeId) {
         return db.queryOne(
-                "SELECT COALESCE(MAX(sibling_rank), 0) + 1 AS r FROM family_members WHERE parent_id IS ? AND gender IS ? AND id != ?",
-                rs -> rs.getInt("r"), parentId, gender, excludeId).orElse(1);
+                "SELECT COALESCE(MAX(sibling_rank), 0) + 1 AS r FROM family_members WHERE generation IS ? AND gender IS ? AND id != ?",
+                rs -> rs.getInt("r"), generation, gender, excludeId).orElse(1);
     }
 
-    /** 下一个家庭排序：同一父亲下全部子女中的 MAX+1（不分性别）。 */
-    public int maxFamilyRank(Long parentId, long excludeId) {
+    /** 下一个同辈顺序：同一世代全部成员中的 MAX+1（不分性别与父母）。 */
+    public int maxFamilyRank(Integer generation, long excludeId) {
         return db.queryOne(
-                "SELECT COALESCE(MAX(family_rank), 0) + 1 AS r FROM family_members WHERE parent_id IS ? AND id != ?",
-                rs -> rs.getInt("r"), parentId, excludeId).orElse(1);
+                "SELECT COALESCE(MAX(family_rank), 0) + 1 AS r FROM family_members WHERE generation IS ? AND id != ?",
+                rs -> rs.getInt("r"), generation, excludeId).orElse(1);
     }
 }

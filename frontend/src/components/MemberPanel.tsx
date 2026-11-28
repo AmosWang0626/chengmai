@@ -181,8 +181,8 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
                 </>
               ) : (
                 <>
-                  {row('同辈排行', node.sibling_rank ? `第${node.sibling_rank}位` : '')}
-                  {row('家庭排序', node.family_rank ? `第${node.family_rank}位` : '')}
+                  {row('同辈顺序', node.family_rank ? `第${node.family_rank}位` : '')}
+                  {row('同性别排行', node.sibling_rank ? `第${node.sibling_rank}位` : '')}
                   {row('出生', node.birth_date)}
                   {row('逝世', node.death_date)}
                   {row('电话', node.phone)}
@@ -200,7 +200,7 @@ const MemberPanel: React.FC<MemberPanelProps> = ({ node, isSpouse, collapsed, us
             </>
           )}
           {!editing && canEdit && !isSpouse && (
-            <SiblingOrderControl members={members} parentId={node.parent_id} onReorder={reorderMembers} />
+            <SiblingOrderControl members={members} generation={node.generation} onReorder={reorderMembers} />
           )}
         </div>
 

@@ -246,10 +246,10 @@ export default function MemberList({ user }: MemberListProps) {
                           {member.generation_char || '-'}字辈
                         </span>
                         <span className="ui-chip bg-jade-100 text-jade-700">
-                          同辈第{member.sibling_rank || 1}位
+                          同性别第{member.sibling_rank || 1}位
                         </span>
                         <span className="ui-chip bg-blue-100 text-blue-700">
-                          家庭第{member.family_rank || 1}位
+                          同辈第{member.family_rank || 1}位
                         </span>
                       </div>
                       {member.spouse_name && (
@@ -300,10 +300,10 @@ export default function MemberList({ user }: MemberListProps) {
                       </th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">字辈</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 cursor-pointer hover:text-cinnabar-600" onClick={() => { setSortField('sibling_rank'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                        同辈排行 {sortField === 'sibling_rank' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        同性别排行 {sortField === 'sibling_rank' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 cursor-pointer hover:text-cinnabar-600" onClick={() => { setSortField('family_rank'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                        家庭排序 {sortField === 'family_rank' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        同辈顺序 {sortField === 'family_rank' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">性别</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">配偶名字</th>

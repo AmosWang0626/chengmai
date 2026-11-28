@@ -127,7 +127,7 @@ export default function MemberBatchEditor({ user, parentIds = [], submitLabel = 
               <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-40">姓名 *</th>
               <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-24">性别</th>
               {parentIds.length === 0 && <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-32">辈份</th>}
-              <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-20">排行</th>
+              <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-24">同性别排行</th>
               <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-40">父母</th>
               <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-32">配偶名字</th>
               <th className="px-3 py-3 text-center text-sm font-medium text-slate-700 w-16">操作</th>
@@ -165,7 +165,7 @@ export default function MemberBatchEditor({ user, parentIds = [], submitLabel = 
                 <td className="px-3 py-3">
                   <input type="number" min={1} value={row.sibling_rank}
                     onChange={event => updateRow(row.id, 'sibling_rank', Number(event.target.value) || 1)}
-                    className="ui-input text-sm" placeholder="排行" />
+                    className="ui-input text-sm" placeholder="同性别排行" />
                 </td>
                 <td className="px-3 py-3">
                   <select value={row.parent_id} onChange={event => updateRow(row.id, 'parent_id', event.target.value)}

@@ -17,7 +17,9 @@ export interface LayoutOpts {
 export const unitWidth = (n: CNode, o: LayoutOpts) => o.cw + (n.spouse_name ? o.mgap + o.sw : 0);
 export const descCount = (n: CNode): number => n.children.reduce((s, c) => s + 1 + descCount(c), 0);
 const byRank = (a: CNode, b: CNode) =>
-  (a.family_rank || 0) - (b.family_rank || 0) || a.name.localeCompare(b.name, 'zh');
+  (a.generation || 0) - (b.generation || 0)
+  || (a.family_rank || 0) - (b.family_rank || 0)
+  || a.name.localeCompare(b.name, 'zh');
 
 export const genderClass = (g: FamilyMember['gender']) => g === 'male' ? 'male' : g === 'female' ? 'female' : 'other';
 export const genderTint = (g: FamilyMember['gender']) =>

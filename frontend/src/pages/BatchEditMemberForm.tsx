@@ -221,8 +221,8 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                     <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-36">姓名</th>
                     <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-28">性别</th>
                     <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-32">辈份</th>
-                    <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-20">同辈排行</th>
-                    <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-20">家庭排序</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-20">同性别排行</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-20">同辈顺序</th>
                     <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-40">父母</th>
                     <th className="px-3 py-3 text-left text-sm font-medium text-slate-700 w-32">配偶名字</th>
                   </tr>
@@ -292,7 +292,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           ))}
                         </select>
                       </td>
-                      <td data-label="同辈排行" className="px-3 py-3">
+                      <td data-label="同性别排行" className="px-3 py-3">
                         <input
                           type="number"
                           min={1}
@@ -300,10 +300,10 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           onChange={e => updateField(member.id, 'sibling_rank', parseInt(e.target.value) || 1)}
                           disabled={!member.selected}
                           className={`${inputClass} ${!member.selected ? 'bg-slate-100 text-slate-400' : ''}`}
-                          placeholder="同辈排行"
+                          placeholder="同性别排行"
                         />
                       </td>
-                      <td data-label="家庭排序" className="px-3 py-3">
+                      <td data-label="同辈顺序" className="px-3 py-3">
                         <input
                           type="number"
                           min={1}
@@ -311,7 +311,7 @@ export default function BatchEditMemberForm({ user }: BatchEditMemberFormProps) 
                           onChange={e => updateField(member.id, 'family_rank', parseInt(e.target.value) || 1)}
                           disabled={!member.selected}
                           className={`${inputClass} ${!member.selected ? 'bg-slate-100 text-slate-400' : ''}`}
-                          placeholder="家庭排序"
+                          placeholder="同辈顺序"
                         />
                       </td>
                       <td data-label="父母" className="px-3 py-3">

@@ -53,6 +53,7 @@ class MemberServiceTest {
     @DisplayName("创建自动填充字辈与排行")
     void createAutoFillsGenerationCharAndRanks() {
         FamilyMember parent = service.create(admin, body("name", "父", "gender", "male", "generation", 25));
+        FamilyMember otherParent = service.create(admin, body("name", "另一位父辈", "gender", "male", "generation", 25));
         assertEquals("问", parent.generationChar());
 
         FamilyMember son1 = service.create(admin, body("name", "子1", "gender", "male", "generation", 26, "parent_id", parent.id()));
@@ -60,13 +61,13 @@ class MemberServiceTest {
         assertEquals(1, son1.siblingRank());
         assertEquals(1, son1.familyRank());
 
-        FamilyMember son2 = service.create(admin, body("name", "子2", "gender", "male", "generation", 26, "parent_id", parent.id()));
+        FamilyMember son2 = service.create(admin, body("name", "子2", "gender", "male", "generation", 26, "parent_id", otherParent.id()));
         assertEquals(2, son2.siblingRank());
         assertEquals(2, son2.familyRank());
 
         FamilyMember daughter = service.create(admin, body("name", "女1", "gender", "female", "generation", 26, "parent_id", parent.id()));
         assertEquals(1, daughter.siblingRank(), "同性别排行独立计算");
-        assertEquals(3, daughter.familyRank(), "家庭排序按全部子女");
+        assertEquals(3, daughter.familyRank(), "同辈顺序按同世代全部成员计算");
     }
 
     @Test
@@ -122,14 +123,27 @@ class MemberServiceTest {
     }
 
     @Test
-    @DisplayName("更新时未传排行则重新计算")
-    void ranksRecalculatedWhenOmittedOnUpdate() {
+    @DisplayName("更新世代且未传排行时按新世代重新计算")
+    void ranksRecalculatedWhenGenerationChanges() {
         FamilyMember parent = service.create(admin, body("name", "父", "generation", 25));
-        FamilyMember m = service.create(admin, body("name", "子", "gender", "male", "generation", 26, "parent_id", parent.id(), "sibling_rank", 7));
-        FamilyMember updated = service.update(m.id(), body("name", "子改名", "parent_id", parent.id(), "gender", "male"));
-        assertEquals(1, updated.siblingRank(), "与旧版行为一致：PUT 未传排行时按父节点+性别重算");
-        assertEquals("子改名", updated.name());
-        assertNotNull(updated.updatedAt());
+        FamilyMember m = service.create(admin, body("name", "子", "gender", "male", "generation", 26,
+                "parent_id", parent.id(), "sibling_rank", 7, "family_rank", 9));
+        FamilyMember updated = service.update(m.id(), body("generation", 27));
+        assertEquals(1, updated.siblingRank());
+        assertEquals(1, updated.familyRank());
+    }
+
+    @Test
+    @DisplayName("同世代内更换父母保留同辈排行")
+    void parentChangeWithinGenerationPreservesRanks() {
+        FamilyMember parent = service.create(admin, body("name", "父", "generation", 25));
+        FamilyMember otherParent = service.create(admin, body("name", "另一位父辈", "generation", 25));
+        FamilyMember child = service.create(admin, body("name", "子", "gender", "male", "generation", 26,
+                "parent_id", parent.id(), "sibling_rank", 7, "family_rank", 9));
+        FamilyMember updated = service.update(child.id(), body("parent_id", otherParent.id()));
+        assertEquals(7, updated.siblingRank());
+        assertEquals(9, updated.familyRank());
+        assertEquals(otherParent.id(), updated.parentId());
     }
 
     @Test
@@ -254,14 +268,15 @@ class MemberServiceTest {
     }
 
     @Test
-    @DisplayName("同辈拖拽重排家庭排行与同性别排行")
+    @DisplayName("同辈拖拽跨父母重排同辈顺序与同性别排行")
     void reorderUpdatesFamilyAndGenderRanks() {
-        FamilyMember parent = service.create(admin, body("name", "父"));
-        FamilyMember son1 = service.create(admin, body("name", "子1", "gender", "male", "parent_id", parent.id()));
-        FamilyMember daughter = service.create(admin, body("name", "女1", "gender", "female", "parent_id", parent.id()));
-        FamilyMember son2 = service.create(admin, body("name", "子2", "gender", "male", "parent_id", parent.id()));
+        FamilyMember parent = service.create(admin, body("name", "父", "generation", 1));
+        FamilyMember otherParent = service.create(admin, body("name", "另一位父辈", "generation", 1));
+        FamilyMember son1 = service.create(admin, body("name", "子1", "gender", "male", "generation", 2, "parent_id", parent.id()));
+        FamilyMember daughter = service.create(admin, body("name", "女1", "gender", "female", "generation", 2, "parent_id", otherParent.id()));
+        FamilyMember son2 = service.create(admin, body("name", "子2", "gender", "male", "generation", 2, "parent_id", parent.id()));
 
-        List<FamilyMember> ordered = service.reorder(parent.id(), List.of(son2.id(), daughter.id(), son1.id()));
+        List<FamilyMember> ordered = service.reorder(2, List.of(son2.id(), daughter.id(), son1.id()));
 
         assertEquals(List.of(son2.id(), daughter.id(), son1.id()), ordered.stream().map(FamilyMember::id).toList());
         assertEquals(List.of(1, 2, 3), ordered.stream().map(FamilyMember::familyRank).toList());
@@ -269,15 +284,29 @@ class MemberServiceTest {
     }
 
     @Test
-    @DisplayName("同辈排序拒绝重复或不完整分组")
+    @DisplayName("旧父节点排序参数按对应世代完整重排")
+    void legacyParentReorderUsesWholeGeneration() {
+        FamilyMember parent = service.create(admin, body("name", "父", "generation", 1));
+        FamilyMember otherParent = service.create(admin, body("name", "另一位父辈", "generation", 1));
+        FamilyMember first = service.create(admin, body("name", "甲", "generation", 2, "parent_id", parent.id()));
+        FamilyMember second = service.create(admin, body("name", "乙", "generation", 2, "parent_id", otherParent.id()));
+
+        List<FamilyMember> ordered = service.reorderByParent(parent.id(), List.of(second.id(), first.id()));
+
+        assertEquals(List.of(second.id(), first.id()), ordered.stream().map(FamilyMember::id).toList());
+    }
+
+    @Test
+    @DisplayName("同辈排序拒绝重复或不完整世代")
     void reorderRejectsIncompleteGroups() {
-        FamilyMember parent = service.create(admin, body("name", "父"));
-        FamilyMember son1 = service.create(admin, body("name", "子1", "parent_id", parent.id()));
-        FamilyMember son2 = service.create(admin, body("name", "子2", "parent_id", parent.id()));
+        FamilyMember parent = service.create(admin, body("name", "父", "generation", 1));
+        FamilyMember otherParent = service.create(admin, body("name", "另一位父辈", "generation", 1));
+        FamilyMember son1 = service.create(admin, body("name", "子1", "generation", 2, "parent_id", parent.id()));
+        FamilyMember son2 = service.create(admin, body("name", "子2", "generation", 2, "parent_id", otherParent.id()));
         assertEquals(400, assertThrows(ApiException.class,
-                () -> service.reorder(parent.id(), List.of(son2.id()))).status());
+                () -> service.reorder(2, List.of(son2.id()))).status());
         assertEquals(400, assertThrows(ApiException.class,
-                () -> service.reorder(parent.id(), List.of(son1.id(), son1.id()))).status());
+                () -> service.reorder(2, List.of(son1.id(), son1.id()))).status());
     }
 
     @Test

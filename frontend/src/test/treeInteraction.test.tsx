@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import type { FamilyMember } from '../types';
 import SiblingOrderControl from '../components/SiblingOrderControl';
+import SiblingOrderDialog from '../components/SiblingOrderDialog';
 import { intersectsViewport, viewportBounds } from '../pages/tree/shared';
 import { useTreeUrlState } from '../pages/tree/urlState';
 
@@ -20,24 +21,25 @@ const member = (id: number, parentId: number | null, familyRank: number): Family
 } as FamilyMember);
 
 describe('SiblingOrderControl', () => {
-  it('submits the complete sibling group in the new order', async () => {
+  it('submits the complete generation group across different parents', async () => {
     const onReorder = vi.fn().mockResolvedValue([]);
-    render(<SiblingOrderControl parentId={10} onReorder={onReorder} members={[
-      member(3, 10, 3), member(1, null, 1), member(2, 10, 2), member(4, 10, 4),
+    const otherGeneration = { ...member(5, null, 1), generation: 3 };
+    render(<SiblingOrderControl generation={2} onReorder={onReorder} members={[
+      member(3, 11, 3), member(1, null, 1), member(2, 10, 2), member(4, 10, 4), otherGeneration,
     ]} />);
 
-    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.getAllByRole('listitem')).toHaveLength(4);
     fireEvent.click(screen.getByRole('button', { name: '上移 成员4' }));
 
-    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(10, [2, 4, 3]));
+    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(2, [1, 2, 4, 3]));
     expect(screen.getAllByRole('listitem').map(item => item.textContent)).toEqual([
-      '1. 成员2', '2. 成员4', '3. 成员3',
+      '1. 成员1', '2. 成员2', '3. 成员4', '4. 成员3',
     ]);
   });
 
   it('restores the previous order and shows an error when saving fails', async () => {
     const onReorder = vi.fn().mockRejectedValue(new Error('排序保存失败'));
-    render(<SiblingOrderControl parentId={10} onReorder={onReorder} members={[
+    render(<SiblingOrderControl generation={2} onReorder={onReorder} members={[
       member(1, 10, 1), member(2, 10, 2),
     ]} />);
 
@@ -51,8 +53,8 @@ describe('SiblingOrderControl', () => {
 
   it('supports drag and drop reordering', async () => {
     const onReorder = vi.fn().mockResolvedValue([]);
-    render(<SiblingOrderControl parentId={10} onReorder={onReorder} members={[
-      member(1, 10, 1), member(2, 10, 2), member(3, 10, 3),
+    render(<SiblingOrderControl generation={2} onReorder={onReorder} members={[
+      member(1, 10, 1), member(2, 11, 2), member(3, 10, 3),
     ]} />);
     const items = screen.getAllByRole('listitem');
 
@@ -60,12 +62,21 @@ describe('SiblingOrderControl', () => {
     fireEvent.dragOver(items[2]);
     fireEvent.drop(items[2]);
 
-    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(10, [2, 3, 1]));
+    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(2, [2, 3, 1]));
   });
 
   it('hides controls for groups with fewer than two siblings', () => {
-    render(<SiblingOrderControl parentId={10} onReorder={vi.fn()} members={[member(1, 10, 1)]} />);
+    render(<SiblingOrderControl generation={2} onReorder={vi.fn()} members={[member(1, 10, 1)]} />);
     expect(screen.queryByRole('heading', { name: '同辈排序' })).not.toBeInTheDocument();
+  });
+  it('groups dialog options by generation instead of parent', () => {
+    render(<SiblingOrderDialog open onClose={vi.fn()} onReorder={vi.fn()} members={[
+      member(1, 10, 1), member(2, 11, 2), { ...member(3, 10, 1), generation: 3 },
+    ]} />);
+
+    expect(screen.getByRole('option', { name: '第2世（2 人）' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /第3世/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
   });
 });
 

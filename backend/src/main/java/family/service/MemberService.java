@@ -58,6 +58,7 @@ public class MemberService {
             throw new ApiException(400, "所选父节点不存在");
         }
         data.put("parent_id", parentId);
+        if (data.get("generation") == null) data.put("generation", 1);
         fillGenerationChar(data);
         fillRanks(data, 0L);
         long id = members.insert(new FamilyMember(
@@ -144,8 +145,22 @@ public class MemberService {
         }
     }
 
-    /** 按完整同父分组拖拽后的顺序重排家庭排行与同性别排行。 */
-    public List<FamilyMember> reorder(Long parentId, List<?> rawIds) {
+    /** 兼容旧客户端：按父节点定位世代，再重排该世代的全部成员。 */
+    public List<FamilyMember> reorderByParent(Long parentId, List<?> rawIds) {
+        if (parentId == null) throw new ApiException(400, "请选择需要排序的世代");
+        FamilyMember parent = members.findById(parentId)
+                .orElseThrow(() -> new ApiException(400, "所选父节点不存在"));
+        if (parent.generation() == null || parent.generation() < 1 || parent.generation() == Integer.MAX_VALUE) {
+            throw new ApiException(400, "父节点世代无效");
+        }
+        return reorder(parent.generation() + 1, rawIds);
+    }
+
+    /** 按完整世代分组拖拽后的顺序重排同辈顺序与同性别排行。 */
+    public List<FamilyMember> reorder(Integer generation, List<?> rawIds) {
+        if (generation == null || generation < 1) {
+            throw new ApiException(400, "世代必须为正整数");
+        }
         if (rawIds == null || rawIds.isEmpty() || rawIds.size() > 500) {
             throw new ApiException(400, "排序成员数量不合法");
         }
@@ -155,12 +170,9 @@ public class MemberService {
         }
 
         return db.inTransaction(() -> {
-            if (parentId != null && !members.existsById(parentId)) {
-                throw new ApiException(400, "所选父节点不存在");
-            }
-            List<FamilyMember> siblings = members.findByParentOrdered(parentId);
-            if (siblings.size() != ids.size()
-                    || siblings.stream().anyMatch(member -> !ids.contains(member.id()))) {
+            List<FamilyMember> peers = members.findByGenerationOrdered(generation);
+            if (peers.size() != ids.size()
+                    || peers.stream().anyMatch(member -> !ids.contains(member.id()))) {
                 throw new ApiException(400, "请提交完整的同辈成员顺序");
             }
 
@@ -169,8 +181,8 @@ public class MemberService {
             for (int i = 0; i < ids.size(); i++) {
                 long id = ids.get(i);
                 FamilyMember member = members.findById(id).orElseThrow(() -> new ApiException(404, "成员不存在"));
-                if (!java.util.Objects.equals(member.parentId(), parentId)) {
-                    throw new ApiException(400, "成员所属同辈已变化，请刷新后重试");
+                if (!java.util.Objects.equals(member.generation(), generation)) {
+                    throw new ApiException(400, "成员所属世代已变化，请刷新后重试");
                 }
                 int siblingRank = genderRanks.merge(member.gender(), 1, Integer::sum);
                 members.update(id, Map.of(
@@ -178,7 +190,7 @@ public class MemberService {
                         "sibling_rank", siblingRank,
                         "updated_at", updatedAt));
             }
-            return members.findByParentOrdered(parentId);
+            return members.findByGenerationOrdered(generation);
         });
     }
 
@@ -225,18 +237,20 @@ public class MemberService {
             data.put("generation_char", effective.get("generation_char"));
         }
 
-        boolean hierarchyChanged = data.containsKey("parent_id") || data.containsKey("gender");
-        if (hierarchyChanged && !data.containsKey("sibling_rank")) {
+        boolean genderChanged = data.containsKey("gender")
+                && !java.util.Objects.equals(data.get("gender"), existing.gender());
+        boolean siblingGroupChanged = generationChanged || genderChanged;
+        if (siblingGroupChanged && !data.containsKey("sibling_rank")) {
             effective.put("sibling_rank", null);
         }
-        if (data.containsKey("parent_id") && !data.containsKey("family_rank")) {
+        if (generationChanged && !data.containsKey("family_rank")) {
             effective.put("family_rank", null);
         }
         fillRanks(effective, id);
-        if (hierarchyChanged || data.containsKey("sibling_rank")) {
+        if (siblingGroupChanged || data.containsKey("sibling_rank")) {
             data.put("sibling_rank", effective.get("sibling_rank"));
         }
-        if (data.containsKey("parent_id") || data.containsKey("family_rank")) {
+        if (generationChanged || data.containsKey("family_rank")) {
             data.put("family_rank", effective.get("family_rank"));
         }
 
@@ -339,14 +353,14 @@ public class MemberService {
         }
     }
 
-    /** 排行缺省（未传或为 0）时按父节点+性别重算；与 Node 版 PUT 行为一致：以请求体为准。 */
+    /** 排行缺省（未传或为 0）时按世代+性别重算。 */
     private void fillRanks(Map<String, Object> data, long id) {
-        Long parentId = (Long) data.get("parent_id");
+        Integer generation = intOrNull(data.get("generation"));
         if (missingRank(data.get("sibling_rank"))) {
-            data.put("sibling_rank", members.maxSiblingRank(parentId, str(data.get("gender")), id));
+            data.put("sibling_rank", members.maxSiblingRank(generation, str(data.get("gender")), id));
         }
         if (missingRank(data.get("family_rank"))) {
-            data.put("family_rank", members.maxFamilyRank(parentId, id));
+            data.put("family_rank", members.maxFamilyRank(generation, id));
         }
     }
 

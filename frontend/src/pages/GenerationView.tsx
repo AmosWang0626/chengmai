@@ -80,7 +80,13 @@ export default function GenerationView({ user }: { user: User | null }) {
       group.members.push(member);
       groups.set(member.generation, group);
     });
-    return [...groups.values()].sort((a, b) => a.generation - b.generation);
+    return [...groups.values()]
+      .sort((a, b) => a.generation - b.generation)
+      .map(group => ({
+        ...group,
+        members: group.members.sort((a, b) =>
+          (a.family_rank || 0) - (b.family_rank || 0) || a.id - b.id),
+      }));
   }, [members]);
 
   useEffect(() => {
