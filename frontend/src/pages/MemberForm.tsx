@@ -4,6 +4,7 @@ import { ArrowLeft, Save, User as UserIcon, Calendar, Phone, Mail, MapPin, BookO
 import { FamilyMember, MemberFormData, User } from '../types';
 import { useFamilyMembers } from '../hooks/useFamilyMembers';
 import { ROUTES } from '../routes';
+import DateInput from '../components/DateInput';
 
 const emptyForm = (generation: number, generationChar: string): MemberFormData => ({
   name: '',
@@ -250,11 +251,11 @@ export default function MemberForm({ user }: { user: User | null }) {
                 <>
                   <div>
                     <label className={labelClass}><Calendar className="w-4 h-4 inline mr-1" />出生日期</label>
-                    <input type="date" value={formData.birth_date} onChange={event => setFormData({ ...formData, birth_date: event.target.value })} className={inputClass} />
+                    <DateInput value={formData.birth_date} onChange={value => setFormData({ ...formData, birth_date: value })} className={inputClass} ariaLabel="出生日期" />
                   </div>
                   <div>
                     <label className={labelClass}><Calendar className="w-4 h-4 inline mr-1" />逝世日期</label>
-                    <input type="date" value={formData.death_date} onChange={event => setFormData({ ...formData, death_date: event.target.value })} className={inputClass} />
+                    <DateInput value={formData.death_date} onChange={value => setFormData({ ...formData, death_date: value })} className={inputClass} ariaLabel="逝世日期" />
                   </div>
                   <div className="md:col-span-2">
                     <label className={labelClass}><MapPin className="w-4 h-4 inline mr-1" />配偶籍贯</label>
@@ -263,11 +264,11 @@ export default function MemberForm({ user }: { user: User | null }) {
                   </div>
                   <div>
                     <label className={labelClass}><Calendar className="w-4 h-4 inline mr-1" />配偶出生日期</label>
-                    <input type="date" value={formData.spouse_birth_date} onChange={event => setFormData({ ...formData, spouse_birth_date: event.target.value })} className={inputClass} />
+                    <DateInput value={formData.spouse_birth_date} onChange={value => setFormData({ ...formData, spouse_birth_date: value })} className={inputClass} ariaLabel="配偶出生日期" />
                   </div>
                   <div>
                     <label className={labelClass}><Calendar className="w-4 h-4 inline mr-1" />配偶逝世日期</label>
-                    <input type="date" value={formData.spouse_death_date} onChange={event => setFormData({ ...formData, spouse_death_date: event.target.value })} className={inputClass} />
+                    <DateInput value={formData.spouse_death_date} onChange={value => setFormData({ ...formData, spouse_death_date: value })} className={inputClass} ariaLabel="配偶逝世日期" />
                   </div>
                   <div>
                     <label className={labelClass}><Phone className="w-4 h-4 inline mr-1" />电话</label>

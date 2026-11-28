@@ -192,8 +192,39 @@ describe('buildTreeSvg', () => {
     expect(result.body).toContain('data-fan-leader="true"');
     expect(result.body).toContain('data-fan-external-label="member-2"');
     expect(result.body).toContain('>始祖</text>');
+    const externalLabel = parseSvg(result.svg).querySelector('[data-fan-external-label="member-2"] text');
+    expect(externalLabel?.textContent).toContain(`${longName} · 德`);
+    expect(externalLabel?.textContent).not.toContain('…');
+    expect(externalLabel?.querySelectorAll('tspan').length).toBeGreaterThan(1);
     expect(result.body).not.toContain('example.invalid');
     parseSvg(result.svg);
+  });
+
+  it('shrinks labels so narrow fan sectors still show member names', () => {
+    const children = Array.from({ length: 30 }, (_, index) => member(index + 2, `成员${index + 1}`, 1, 2));
+    const result = buildTreeSvg(options({ mode: 'fan', members: [members[0], ...children], rootMemberId: 1 }));
+    const svg = parseSvg(result.svg);
+
+    expect(svg.querySelectorAll('[data-fan-label]')).toHaveLength(children.length);
+    expect(result.body).toContain('data-fan-label="2"');
+    expect(result.body).not.toContain('data-fan-external-label="member-2"');
+  });
+
+  it('exports fan members and labels without guide circles, frames or leader lines', () => {
+    const longName = '一位名字非常非常长需要放到扇形图外部引线标注的家族成员';
+    const data = [{ ...members[0], spouse_name: '始祖配偶' }, { ...member(2, longName, 1, 2) }, members[3]];
+    const result = buildTreeSvg(options({ mode: 'fan', members: data, rootMemberId: 1, showGuides: false }));
+    const svg = parseSvg(result.svg);
+
+    expect(result.body).toContain('data-fan-root="true"');
+    expect(result.body).toContain('data-fan-member="2"');
+    expect(result.body).toContain('data-fan-external-label="member-2"');
+    expect(result.body).toContain('始祖配偶');
+    expect(result.body).not.toContain('data-fan-generations=');
+    expect(result.body).not.toContain('data-fan-leader=');
+    expect(result.body).not.toContain('stroke="#C9BCA4"');
+    expect(result.body).not.toContain('stroke="#D8CDB7"');
+    expect(svg.querySelectorAll('path[fill="none"], circle[fill="none"]')).toHaveLength(0);
   });
 
   it('includes every root when exporting a multi-root fan tree', () => {
@@ -259,6 +290,18 @@ describe('exportTree', () => {
     expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     expect(URL.revokeObjectURL).toHaveBeenCalledWith(`blob:tree-${format}`);
     expect(document.querySelector('a[download]')).toBeNull();
+  });
+
+  it('adds a timestamp to the downloaded filename', async () => {
+    let filename = '';
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      filename = this.download;
+    });
+
+    await exportTree(options(), 'json');
+
+    expect(filename).toMatch(/^测试家谱_\d{8}-\d{6}\.json$/);
+    expect(click).toHaveBeenCalledOnce();
   });
 
   it('rejects an empty tree without creating a download', async () => {

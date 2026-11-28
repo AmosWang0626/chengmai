@@ -13,6 +13,7 @@ export interface TreeExportOptions {
   includeCollapsed: boolean;
   showSpouse: boolean;
   showNotes: boolean;
+  showGuides?: boolean;
   title: string;
 }
 
@@ -62,6 +63,24 @@ const fittedText = (value: string, maxUnits: number): string => {
     used += width;
   }
   return `${result}…`;
+};
+
+const wrapText = (value: string, maxUnits: number): string[] => {
+  const lines: string[] = [];
+  let line = '';
+  let used = 0;
+  for (const char of Array.from(value)) {
+    const width = isAscii(char) ? 0.56 : 1;
+    if (line && used + width > maxUnits) {
+      lines.push(line);
+      line = '';
+      used = 0;
+    }
+    line += char;
+    used += width;
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [''];
 };
 
 const year = (value: string | null): string => value ? value.slice(0, 4) : '';
@@ -141,7 +160,7 @@ const header = (options: TreeExportOptions, width: number): { markup: string; he
     height: hasTitle ? 108 : 68,
     markup: `${hasTitle ? `<text x="${num(width / 2)}" y="43" text-anchor="middle" font-size="27" font-weight="700" fill="${INK}">${xml(title)}</text>` : ''}
       <text x="${num(width / 2)}" y="${hasTitle ? 73 : 40}" text-anchor="middle" font-size="12" fill="${MUTED}">导出日期 ${exportedDate()}</text>
-      <path d="M 28 ${hasTitle ? 88 : 50} H ${num(width - 28)}" stroke="#D8CDB7" stroke-width="1" />`,
+      ${options.showGuides === false ? '' : `<path d="M 28 ${hasTitle ? 88 : 50} H ${num(width - 28)}" stroke="#D8CDB7" stroke-width="1" />`}`,
   };
 };
 
@@ -375,7 +394,6 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
 
   const internalLabels: string[] = [];
   const externalLabels: FanLabel[] = [];
-  const fontSize = 16;
   const addExternal = (key: string, name: string, detail: string, angle: number, radius: number, spouse: boolean): void => {
     externalLabels.push({ key, text: name, detail, angle, outer: radius, spouse });
   };
@@ -390,13 +408,14 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
     const detail = options.showNotes
       ? [node.generation ? `第${node.generation}世${char ? ` · ${char}` : ''}` : '', years(node.birth_date, node.death_date), node.notes || ''].filter(Boolean).join(' · ')
       : '';
-    const labelText = `${node.name}${char ? ` · ${char}` : ''}`;
-    if (arcWidth >= textUnits(labelText) * fontSize && fontSize * 1.4 <= ro - ri - 8) {
+    const nameUnits = Math.max(1, textUnits(node.name));
+    const labelSize = Math.min(16, (ro - ri - 8) / nameUnits, arcWidth / 1.4);
+    if (labelSize >= 7) {
       let degrees = midAngle * 180 / Math.PI;
       if (Math.cos(midAngle) < 0) degrees += 180;
-      internalLabels.push(`<text data-fan-label="${xml(String(node.id))}" x="${num(cx + midRadius * Math.cos(midAngle))}" y="${num(cy + midRadius * Math.sin(midAngle))}" transform="rotate(${num(degrees)} ${num(cx + midRadius * Math.cos(midAngle))} ${num(cy + midRadius * Math.sin(midAngle))})" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize}" fill="${INK}">${xml(labelText)}</text>`);
+      internalLabels.push(`<text data-fan-label="${xml(String(node.id))}" x="${num(cx + midRadius * Math.cos(midAngle))}" y="${num(cy + midRadius * Math.sin(midAngle))}" transform="rotate(${num(degrees)} ${num(cx + midRadius * Math.cos(midAngle))} ${num(cy + midRadius * Math.sin(midAngle))})" text-anchor="middle" dominant-baseline="middle" font-size="${num(labelSize)}" fill="${INK}">${xml(node.name)}</text>`);
     } else {
-      addExternal(`member-${node.id}`, labelText, detail, midAngle, ro, false);
+      addExternal(`member-${node.id}`, `${node.name}${char ? ` · ${char}` : ''}`, detail, midAngle, ro, false);
     }
   }
 
@@ -421,18 +440,25 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
   const labelWidth = 210;
   const labelX = outerR + 48;
   const minLabelY = heading.height + 22;
-  const maxSideLabels = Math.max(...[1, -1].map(side => externalLabels.filter(label =>
+  const wrappedLabels = externalLabels.map(label => ({
+    ...label,
+    nameLines: wrapText(label.text, labelWidth / 13),
+    detailLines: label.detail ? wrapText(label.detail, labelWidth / 10) : [],
+  }));
+  const labelRowHeight = Math.max(24, ...wrappedLabels.map(label =>
+    label.nameLines.length * 15 + (label.detailLines.length ? label.detailLines.length * 12 + 5 : 0) + 10));
+  const maxSideLabels = Math.max(...[1, -1].map(side => wrappedLabels.filter(label =>
     (Math.cos(label.angle) >= 0 ? 1 : -1) === side).length));
-  const legendY = Math.max(baseLegendY, minLabelY + maxSideLabels * 24 + 20);
+  const legendY = Math.max(baseLegendY, minLabelY + maxSideLabels * labelRowHeight + 20);
   const height = legendY + 52;
   const maxLabelY = legendY - 20;
   const externalMarkup: string[] = [];
   for (const side of [1, -1]) {
-    const labels = externalLabels
+    const labels = wrappedLabels
       .filter(label => (Math.cos(label.angle) >= 0 ? 1 : -1) === side)
       .sort((a, b) => Math.sin(a.angle) - Math.sin(b.angle));
     const step = labels.length > 1
-      ? Math.min(42, (maxLabelY - minLabelY) / (labels.length - 1))
+      ? Math.max(labelRowHeight, Math.min(42, (maxLabelY - minLabelY) / (labels.length - 1)))
       : 0;
     labels.forEach((label, index) => {
       const desiredY = cy + (outerR + 28) * Math.sin(label.angle);
@@ -441,12 +467,15 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
       const ax = cx + (label.outer + 2) * Math.cos(label.angle);
       const ay = cy + (label.outer + 2) * Math.sin(label.angle);
       const ex = cx + side * labelX;
-      const detailSize = step < 25 ? 8 : 10;
+      const rowTop = labelY - labelRowHeight / 2;
+      const nameMarkup = label.nameLines.map((line, lineIndex) =>
+        `<tspan x="${num(ex)}" y="${num(rowTop + 13 + lineIndex * 15)}">${xml(line)}</tspan>`).join('');
+      const detailMarkup = label.detailLines.map((line, lineIndex) =>
+        `<tspan x="${num(ex)}" y="${num(rowTop + 13 + label.nameLines.length * 15 + lineIndex * 12)}" font-size="10" fill="${MUTED}">${xml(line)}</tspan>`).join('');
       externalMarkup.push(`<g data-fan-external-label="${xml(label.key)}">
-        <path data-fan-leader="true" d="M ${num(ax)} ${num(ay)} L ${num(ex - side * 16)} ${num(labelY)} H ${num(ex - side * 4)}" fill="none" stroke="#AAA18F" stroke-width="1" />
-        <circle cx="${num(ax)}" cy="${num(ay)}" r="1.8" fill="${label.spouse ? CINNABAR : '#8E877A'}" />
-        <text x="${num(ex)}" y="${num(labelY + (label.detail ? -2 : 5))}" text-anchor="${side === 1 ? 'start' : 'end'}" font-size="13" font-weight="700" fill="${label.spouse ? '#9A2E1E' : INK}">${xml(fittedText(label.text, labelWidth / 13))}</text>
-        ${label.detail ? `<text x="${num(ex)}" y="${num(labelY + detailSize + 5)}" text-anchor="${side === 1 ? 'start' : 'end'}" font-size="${detailSize}" fill="${MUTED}">${xml(fittedText(label.detail, labelWidth / detailSize))}</text>` : ''}
+        ${options.showGuides === false ? '' : `<path data-fan-leader="true" d="M ${num(ax)} ${num(ay)} L ${num(ex - side * 16)} ${num(labelY)} H ${num(ex - side * 4)}" fill="none" stroke="#AAA18F" stroke-width="1" />
+        <circle cx="${num(ax)}" cy="${num(ay)}" r="1.8" fill="${label.spouse ? CINNABAR : '#8E877A'}" />`}
+        <text text-anchor="${side === 1 ? 'start' : 'end'}" font-size="13" font-weight="700" fill="${label.spouse ? '#9A2E1E' : INK}">${nameMarkup}${detailMarkup}</text>
       </g>`);
     });
   }
@@ -485,9 +514,9 @@ function buildFan(options: TreeExportOptions, members: FamilyMember[]): TreeSvgD
 
   const body = `${svgStyle}
     <rect data-tree-background="true" x="0" y="0" width="${num(size)}" height="${num(height)}" fill="${BACKGROUND}" />
-    <rect x="18" y="18" width="${num(size - 36)}" height="${num(height - 36)}" fill="none" stroke="#C9BCA4" stroke-width="1.2" />
+    ${options.showGuides === false ? '' : `<rect x="18" y="18" width="${num(size - 36)}" height="${num(height - 36)}" fill="none" stroke="#C9BCA4" stroke-width="1.2" />`}
     ${heading.markup}
-    <g data-fan-generations="true">${generationMarkup.join('')}</g>
+    ${options.showGuides === false ? '' : `<g data-fan-generations="true">${generationMarkup.join('')}</g>`}
     <g data-fan-spouse-rings="true">${spouseMarkup}</g>
     <g data-fan-member-arcs="true">${memberMarkup}</g>
     <g data-fan-internal-labels="true">${internalLabels.join('')}</g>
@@ -567,6 +596,13 @@ const safeFilename = (title: string): string => {
   return value || 'family-tree';
 };
 
+const timestampedFilename = (title: string, extension: string): string => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `${safeFilename(title)}_${timestamp}.${extension}`;
+};
+
 const triggerDownload = (blob: Blob, filename: string, objectUrls: Set<string>): void => {
   const url = URL.createObjectURL(blob);
   objectUrls.add(url);
@@ -617,7 +653,7 @@ async function exportPdf(options: TreeExportOptions, document: TreeSvgDocument, 
     pdf.text(`Page ${index + 1} of ${pageCount}`, pageWidth / 2, pageHeight - 13, { align: 'center' });
   }
 
-  triggerDownload(pdf.output('blob'), `${safeFilename(options.title)}.pdf`, objectUrls);
+  triggerDownload(pdf.output('blob'), timestampedFilename(options.title, 'pdf'), objectUrls);
 }
 
 export async function exportTree(options: TreeExportOptions, format: TreeExportFormat): Promise<void> {
@@ -627,7 +663,7 @@ export async function exportTree(options: TreeExportOptions, format: TreeExportF
     if (format === 'json') {
       triggerDownload(
         new Blob([buildTreeJson(options)], { type: 'application/json;charset=utf-8' }),
-        `${safeFilename(options.title)}.json`,
+        timestampedFilename(options.title, 'json'),
         objectUrls,
       );
       return;
@@ -637,7 +673,7 @@ export async function exportTree(options: TreeExportOptions, format: TreeExportF
     if (format === 'svg') {
       triggerDownload(
         new Blob([document.svg], { type: 'image/svg+xml;charset=utf-8' }),
-        `${safeFilename(options.title)}.svg`,
+        timestampedFilename(options.title, 'svg'),
         objectUrls,
       );
       return;
@@ -647,7 +683,7 @@ export async function exportTree(options: TreeExportOptions, format: TreeExportF
       const canvas = window.document.createElement('canvas');
       paintCanvas(canvas, image, document.width, document.height, rasterScale(document.width, document.height, 2));
       const blob = await canvasBlob(canvas);
-      triggerDownload(blob, `${safeFilename(options.title)}.png`, objectUrls);
+      triggerDownload(blob, timestampedFilename(options.title, 'png'), objectUrls);
       return;
     }
     if (format === 'pdf') {

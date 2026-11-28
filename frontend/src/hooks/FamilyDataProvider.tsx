@@ -152,11 +152,14 @@ export function FamilyDataProvider({ children }: { children: React.ReactNode }) 
     },
     async reorderMembers(userId, generation, memberIds) {
       beginMutation(userId);
-      const ordered = await api.reorderMembers(generation, memberIds);
-      finishMutation(userId);
-      const byId = new Map(ordered.map(member => [member.id, member]));
-      replaceMembers(userId, members => members.map(member => byId.get(member.id) || member));
-      return ordered;
+      try {
+        const ordered = await api.reorderMembers(generation, memberIds);
+        const byId = new Map(ordered.map(member => [member.id, member]));
+        replaceMembers(userId, members => members.map(member => byId.get(member.id) || member));
+        return ordered;
+      } finally {
+        finishMutation(userId);
+      }
     },
     async deleteMember(userId, id) {
       beginMutation(userId);

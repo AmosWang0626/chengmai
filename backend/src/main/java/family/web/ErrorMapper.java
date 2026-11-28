@@ -2,6 +2,7 @@ package family.web;
 
 import family.service.ApiException;
 import io.javalin.config.RoutesConfig;
+import io.javalin.http.HttpResponseException;
 
 import java.util.Map;
 
@@ -15,6 +16,11 @@ public class ErrorMapper {
     public void register(RoutesConfig routes) {
         routes.exception(ApiException.class, (e, ctx) ->
                 ctx.status(e.status()).json(Map.of("error", e.getMessage())));
+
+        routes.exception(HttpResponseException.class, (e, ctx) -> {
+            String message = e.getMessage() == null ? "请求失败" : e.getMessage();
+            ctx.status(e.getStatus()).json(Map.of("error", message));
+        });
 
         routes.exception(Exception.class, (e, ctx) -> {
             e.printStackTrace();

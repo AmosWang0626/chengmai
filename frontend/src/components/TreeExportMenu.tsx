@@ -30,6 +30,7 @@ export const TreeExportMenu: React.FC<TreeExportMenuProps> = ({
   const [includeCollapsed, setIncludeCollapsed] = useState(false);
   const [includeSpouse, setIncludeSpouse] = useState(showSpouse);
   const [includeNotes, setIncludeNotes] = useState(showNotes);
+  const [hideGuides, setHideGuides] = useState(false);
   const [busy, setBusy] = useState<TreeExportFormat | null>(null);
   const [error, setError] = useState('');
 
@@ -60,6 +61,7 @@ export const TreeExportMenu: React.FC<TreeExportMenuProps> = ({
         includeCollapsed,
         showSpouse: includeSpouse,
         showNotes: includeNotes,
+        showGuides: mode !== 'fan' || !hideGuides,
         title,
       }, format);
       if (detailsRef.current) detailsRef.current.open = false;
@@ -88,6 +90,7 @@ export const TreeExportMenu: React.FC<TreeExportMenuProps> = ({
         <label className="tc-export-check"><input type="checkbox" checked={includeCollapsed} onChange={event => setIncludeCollapsed(event.target.checked)} />包含折叠后代</label>
         <label className="tc-export-check"><input type="checkbox" checked={includeSpouse} onChange={event => setIncludeSpouse(event.target.checked)} />显示配偶</label>
         <label className="tc-export-check"><input type="checkbox" checked={includeNotes} onChange={event => setIncludeNotes(event.target.checked)} />显示备注与排行</label>
+        {mode === 'fan' && <label className="tc-export-check"><input type="checkbox" checked={hideGuides} onChange={event => setHideGuides(event.target.checked)} />隐藏辅助线（无圈线、外框与引线）</label>}
         <div className="tc-export-formats">
           {formats.map(format => {
             const Icon = format.icon;
@@ -98,7 +101,7 @@ export const TreeExportMenu: React.FC<TreeExportMenuProps> = ({
             );
           })}
         </div>
-        <p className="tc-export-hint">SVG 适合无损编辑；PNG/PDF 会按图谱尺寸自动控制分辨率。</p>
+        <p className="tc-export-hint">SVG 适合无损编辑；PNG/PDF 会按图谱尺寸自动控制分辨率。{mode === 'fan' && hideGuides ? ' 当前导出不含辅助线。' : ''}</p>
         {error && <p className="tc-export-error" role="alert">{error}</p>}
       </div>
     </details>
