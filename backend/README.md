@@ -1,21 +1,36 @@
-# backend · 后端项目
+# backend · 后端
 
 Javalin 7（内嵌 Jetty 12）+ SQLite + JWT 的轻量 REST 服务，单 jar 交付，无 Spring、无外部数据库。
 
+## 构建与运行
+
+在仓库根目录执行：
+
 ```bash
-mvn package        # 构建 + 37 项 JUnit（内存 SQLite）
-mvn test           # 仅测试
-# 运行（在仓库根目录执行，或显式指定 DATA_DIR / STATIC_DIR）
-java --enable-native-access=ALL-UNNAMED -jar target/chengmai-backend.jar
+mvn -f backend/pom.xml package    # 测试并构建
+mvn -f backend/pom.xml test       # 仅测试
+java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 ```
 
-环境变量：`PORT`（默认 8080）、`DATA_DIR`（默认 `data`）、`STATIC_DIR`（默认 `frontend/dist`，目录存在则同进程托管前端）。
+推荐使用根目录 `../start.sh` 统一构建、启动和管理进程。首次启动自动建表、补齐字段并初始化账号。
 
-分层：`config / db / model / repository / service / web(controller) / util`，装配在 `Main.java`；
-横切：`CorsHandler`（跨域）、`AuthInterceptor`（JWT + 权限矩阵）、`ErrorMapper`（统一 `{error}`）。
+## 配置
 
-安全：DAO 列白名单、bcrypt 密码、HS256 JWT（7 天）、密钥文件 0600、上传扩展名白名单 + 20MB/45MB 限制。
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `PORT` | `8080` | HTTP 端口 |
+| `DATA_DIR` | `data` | 数据目录，相对进程工作目录 |
+| `STATIC_DIR` | `frontend/dist` | 前端静态目录；不存在时仅提供 API |
+| `CORS_ORIGINS` | 本地开发前端地址 | 跨域来源，多个用逗号分隔 |
 
-**重建 jar 后必须重启进程**（运行中 JVM 持有被覆盖 jar 会导致懒加载类 ClassNotFoundException）。
+## 结构
 
-完整架构与 API 契约见仓库根 [README.md](../README.md)。
+- `config / db / model`：配置、数据库与数据模型。
+- `repository / service`：持久化与业务逻辑。
+- `web`：路由、鉴权、CORS、日志、审计与异常处理。
+- `src/main/resources/schema.sql`：建表与初始账号。
+- `src/test`：基于内存 SQLite 的单元测试。
+
+所有业务接口位于 `/api`，除登录与预检请求外均需 JWT。具体路由与权限见 `web/ApiRouter.java` 和 `web/AuthInterceptor.java`。
+
+安全与部署提醒见根目录 [README.md](../README.md) 和 [SECURITY.md](../SECURITY.md)。
