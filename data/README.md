@@ -17,7 +17,7 @@
 # 1) 启动后端即自动建表（空库）
 ./start.sh
 
-# 2) 可选：灌入虚构演示数据（仅空库；王氏四代 12 人，账号建库时已内置）
+# 2) 可选：灌入虚构演示数据（仅空库；王氏七代 80 人，账号建库时已内置）
 sqlite3 data/family.db < data/seed-demo.sql
 #    账号：admin / demo123（管理员）、viewer / demo123（访客），由 schema.sql 内置
 #    体验后请立即在「账号管理」改密

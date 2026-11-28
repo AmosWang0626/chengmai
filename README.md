@@ -15,6 +15,28 @@
 - 紧凑首页：统计、世系分布、最近更新与快捷入口；成员管理统一提供表格 / 世系 / 世代三种视图
 - 统一视觉主题：朱砂 + 鎏金 + jade + 黛青 + 暖墨宣纸
 
+## 界面预览
+
+以下截图均使用仓库默认的**虚构演示数据**：王氏七代、80 名成员，不包含真实家族资料。
+
+### 家族总览
+
+统计、世代分布、近期生日与最近更新集中展示，并可快速进入图谱、成员和图册管理。
+
+![家族总览](docs/assets/dashboard.png)
+
+### 扇形家谱图
+
+环状放射布局，支持配偶婚环、折叠分支、缩放定位、双击换根与多种格式导出。
+
+![扇形家谱图](docs/assets/fan-tree.png)
+
+### 传统家谱图
+
+竖排右起谱页，融合夫妻双柱、生卒信息、婚线与墨线吊挂，保留传统谱页的阅读节奏。
+
+![传统家谱图](docs/assets/traditional-tree.png)
+
 ---
 
 ## 一、总体架构
@@ -137,7 +159,7 @@ mvn -f backend/pom.xml package
 # 运行（默认端口 8080，数据目录 ./data，静态目录 ./frontend/dist）
 java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 
-# 可选：灌入完全虚构的演示数据（仅空库；王氏四代 12 人，账号已内置）
+# 可选：灌入完全虚构的演示数据（仅空库；王氏七代 80 人，账号已内置）
 sqlite3 data/family.db < data/seed-demo.sql
 ```
 
@@ -174,7 +196,7 @@ java --enable-native-access=ALL-UNNAMED -jar backend/target/chengmai-backend.jar
 
 ### 默认账号与安全提醒
 
-仓库仅含**完全虚构**的演示种子 `data/seed-demo.sql`（王氏四代 12 人）；账号在建库时内置：
+仓库仅含**完全虚构**的演示种子 `data/seed-demo.sql`（王氏七代 80 人）；账号在建库时内置：
 `admin / demo123`（管理员）、`viewer / demo123`（访客）。**部署到任何非本机环境前请立即在「账号管理」改密**；
 真实家谱数据请自行录入，切勿提交 / 推送真实数据、照片或密钥（详见 [SECURITY.md](SECURITY.md)）。
 `.jwt-secret` 为签名密钥，权限 0600，切勿入库 / 上传 / 分享。
@@ -330,7 +352,7 @@ python3 tests/smoke_test.py
 - **代码与数据彻底分离**：仓库只含代码、文档与完全虚构的演示种子；真实家谱（`data/family.db`、
   `uploads/`、`.jwt-secret`）一律被 `.gitignore` 忽略，仅放行 `data/README.md` 与 `data/seed-demo.sql`。
 - 克隆后体验：`./start.sh` 自动建表并内置 `admin / demo123`、`viewer / demo123` → 可选
-  `sqlite3 data/family.db < data/seed-demo.sql` 灌入虚构王氏四代 12 人；真实数据自行录入，**永不入库**。
+  `sqlite3 data/family.db < data/seed-demo.sql` 灌入虚构王氏七代 80 人；真实数据自行录入，**永不入库**。
 - 安全设计（本地化存储 / 密钥自动生成 0600 / bcrypt / JWT / 角色矩阵 / 上传白名单 / 列白名单防注入）见 [SECURITY.md](SECURITY.md)。
 - 无 git 历史包袱：本项目以干净起点开源，不存在历史提交中的隐私残留。
 
